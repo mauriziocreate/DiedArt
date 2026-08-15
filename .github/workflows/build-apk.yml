@@ -1,0 +1,102 @@
+name: Compila APK DeadArt
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il progetto
+        uses: actions/checkout@v4
+
+      - name: Prepara Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Raccogli i file dell'app dentro www
+        run: |
+          mkdir -p www/icons
+          cp index.html privacy.html manifest.json sw.js www/
+          cp icons/*.png www/icons/
+          ls -la www
+
+      - name: Installa Capacitor
+        run: npm install
+
+      - name: Crea il progetto Android
+        run: npx cap add android
+
+      - name: Sincronizza i file dell'app
+        run: npx cap sync android
+
+      - name: Ricrea il keystore dalle chiavi segrete
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/deadart-release.keystore
+          ls -la android/app/deadart-release.keystore
+
+      - name: Firma con la chiave fissa (aggiornamenti senza disinstallare)
+        run: |
+          python3 - << 'PYSIGN'
+          import re
+          p='android/app/build.gradle'
+          s=open(p).read()
+          sign='''
+              signingConfigs {
+                  fissa {
+                      storeFile file('deadart-release.keystore')
+                      storePassword System.getenv('DEAD_STORE_PW')
+                      keyAlias System.getenv('DEAD_KEY_ALIAS')
+                      keyPassword System.getenv('DEAD_KEY_PW')
+                  }
+              }'''
+          s=re.sub(r'android\s*\{', 'android {'+sign, s, count=1)
+          if re.search(r'buildTypes\s*\{', s):
+              s=re.sub(r'buildTypes\s*\{', 'buildTypes {\n        debug { signingConfig signingConfigs.fissa }', s, count=1)
+          else:
+              s=re.sub(r'(signingConfigs\s*\{[^}]*\}\s*\})', r'\1\n    buildTypes { debug { signingConfig signingConfigs.fissa } }', s, count=1)
+          open(p,'w').write(s)
+          print('--- build.gradle firmato ---')
+          i=s.find('android'); print(s[i:i+500])
+          PYSIGN
+
+      - name: Compila l'APK
+        env:
+          DEAD_STORE_PW: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
+          DEAD_KEY_ALIAS: ${{ secrets.MAIR_KEY_ALIAS }}
+          DEAD_KEY_PW: ${{ secrets.MAIR_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Compila il pacchetto per il Play Store
+        env:
+          DEAD_STORE_PW: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
+          DEAD_KEY_ALIAS: ${{ secrets.MAIR_KEY_ALIAS }}
+          DEAD_KEY_PW: ${{ secrets.MAIR_KEY_PASSWORD }}
+        run: |
+          cd android
+          ./gradlew bundleDebug || echo "bundle non riuscito, resta comunque l'APK"
+
+      - name: Pubblica l'APK scaricabile
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeadArt-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Pubblica il bundle (se prodotto)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeadArt-AAB
+          path: android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: ignore
