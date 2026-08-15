@@ -39,12 +39,27 @@ jobs:
       - name: Sincronizza i file dell'app
         run: npx cap sync android
 
-      - name: Ricrea il keystore dalle chiavi segrete
+      - name: Guarda se c'e' una chiave di firma tua
+        id: chiave
+        env:
+          K: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/deadart-release.keystore
-          ls -la android/app/deadart-release.keystore
+          if [ -n "$K" ]; then
+            echo "$K" | base64 -d > android/app/deadart-release.keystore
+            if [ -s android/app/deadart-release.keystore ]; then
+              echo "mia=si" >> $GITHUB_OUTPUT
+              echo "Chiave personale trovata."
+            else
+              echo "mia=no" >> $GITHUB_OUTPUT
+              echo "Il segreto c'e' ma il file e' vuoto: uso la chiave di prova."
+            fi
+          else
+            echo "mia=no" >> $GITHUB_OUTPUT
+            echo "Nessun segreto impostato: uso la chiave di prova di Android."
+          fi
 
-      - name: Firma con la chiave fissa (aggiornamenti senza disinstallare)
+      - name: Firma con la chiave fissa
+        if: steps.chiave.outputs.mia == 'si'
         run: |
           python3 - << 'PYSIGN'
           import re
@@ -65,8 +80,7 @@ jobs:
           else:
               s=re.sub(r'(signingConfigs\s*\{[^}]*\}\s*\})', r'\1\n    buildTypes { debug { signingConfig signingConfigs.fissa } }', s, count=1)
           open(p,'w').write(s)
-          print('--- build.gradle firmato ---')
-          i=s.find('android'); print(s[i:i+500])
+          print('--- build.gradle firmato con la chiave personale ---')
           PYSIGN
 
       - name: Compila l'APK
@@ -79,24 +93,8 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug
 
-      - name: Compila il pacchetto per il Play Store
-        env:
-          DEAD_STORE_PW: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
-          DEAD_KEY_ALIAS: ${{ secrets.MAIR_KEY_ALIAS }}
-          DEAD_KEY_PW: ${{ secrets.MAIR_KEY_PASSWORD }}
-        run: |
-          cd android
-          ./gradlew bundleDebug || echo "bundle non riuscito, resta comunque l'APK"
-
       - name: Pubblica l'APK scaricabile
         uses: actions/upload-artifact@v4
         with:
           name: DeadArt-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Pubblica il bundle (se prodotto)
-        uses: actions/upload-artifact@v4
-        with:
-          name: DeadArt-AAB
-          path: android/app/build/outputs/bundle/**/*.aab
-          if-no-files-found: ignore
