@@ -1,6 +1,6 @@
-# DeadArt 1.0
+# DeadArt
 
-L'archivio delle opere che non ci sono più.
+Il cantiere delle opere in corso e l'archivio delle opere che non ci sono più.
 
 Di **Maurizio D'Andrea**. App libera, distribuita senza manutenzione né assistenza.
 
@@ -8,60 +8,78 @@ Di **Maurizio D'Andrea**. App libera, distribuita senza manutenzione né assiste
 
 ## Cos'è
 
-DeadArt raccoglie le tele distrutte, le prove, le fasi coperte da altre fasi, i disegni buttati, i titoli respinti, le registrazioni fatte mentre lavoravi. Tutto quello che un portfolio non mostra e senza cui l'opera non sarebbe nata.
+**Il cantiere** tiene le opere mentre nascono. Apri una scheda quando cominci e fotografi il lavoro ogni volta che cambia: ogni scatto diventa una fase, con la sua data, il suo nome e la sua nota. Alla fine hai la storia del quadro, non solo il quadro.
 
-Ogni scheda nasce muta. Per sette giorni non puoi dire perché l'hai scartata, perché nel momento in cui la scarti non lo sai. Al settimo giorno l'app chiede una cosa sola: *cosa è rimasto?* Rispondi con una parola e con cinque secondi di voce. Quella parola diventa il nome con cui la scheda vive nell'archivio. Se non rispondi entro un giorno resta scritto *dimenticata*, ed è un dato anche quello.
+**L'archivio** tiene quelle che non ce l'hanno fatta: le tele distrutte, le prove, le fasi coperte da altre fasi, i disegni buttati, i titoli respinti. Un'opera del cantiere che muore passa di là con tutte le sue fasi dietro.
 
-Tutto resta sul telefono: foto, note, registrazioni. Nessun account, nessun server, nessuna pubblicità, nessun acquisto.
+Ogni scheda dell'archivio nasce muta. Per sette giorni non puoi dire perché l'hai scartata, perché nel momento in cui la scarti non lo sai. Al settimo giorno l'app chiede una cosa sola: *cosa è rimasto?* Rispondi con una parola e con cinque secondi di voce. Quella parola diventa il nome con cui la scheda vive nell'archivio. Se non rispondi entro un giorno resta scritto *dimenticata*, ed è un dato anche quello.
+
+Tutto resta sul telefono: nessun account, nessun server, nessun cookie, nessuna pubblicità.
 
 ## Come funziona dentro
 
-- **Salvataggio**: IndexedDB sul dispositivo (database `deadart`, store `items`, `media`, `conf`). Nessuna rete.
+- **Salvataggio**: IndexedDB sul dispositivo (database `deadart`, store `items`, `media`, `conf`).
 - **Immagini**: ricompresse in JPEG restringendo lato lungo e qualità finché il file non scende sotto 1 MB. Miniatura separata a 420 px per la griglia.
-- **Voce**: MediaRecorder, salvata come data URL webm dentro lo stesso store.
-- **Copia di sicurezza**: dalla schermata Info, esporta tutto (schede + immagini + audio) in un unico `.json`.
+- **Scarico**: ogni foto ha un collegamento «scarica», che la salva nei Download con un nome parlante (`titolo-fase-01.jpg`).
+- **Voce**: MediaRecorder, salvata dentro lo stesso archivio locale.
+- **Copia di sicurezza**: dalla schermata Info, tutto in un unico `.json`.
 
 ## File
 
 ```
-index.html      l'app intera, un file solo
-manifest.json   nome, icone, colori per l'installazione
-sw.js           service worker, funziona offline
-icons/          spirale logaritmica, 192 / 512 / 512 maskable
+index.html                       l'app intera, un file solo
+privacy.html                     informativa, serve al Play Store
+manifest.json                    nome, icone, colori
+sw.js                            service worker, funziona offline
+icons/                           spirale logaritmica, 192 / 512 / 512 maskable
+package.json                     dipendenze Capacitor (servono solo alla compilazione)
+capacitor.config.json            id pacchetto: info.dandreart.deadart
+.github/workflows/build-apk.yml  compila l'APK su GitHub
 ```
 
 ## Metterla online (GitHub Pages)
 
-1. Crea un repository, per esempio `deadart`, e carica questi file nella radice.
+1. Carica tutti i file nella radice del repository, cartelle comprese.
 2. Settings → Pages → Source: `main`, cartella `/ (root)`. Salva.
-3. Dopo un minuto risponde su `https://<utente>.github.io/deadart/`.
+3. Dopo un minuto risponde su `https://<utente>.github.io/<repo>/`.
 4. Aprila da Android in Chrome: il menù propone «Installa app». Da lì funziona già offline.
 
-Se la metti in una sottocartella, i percorsi relativi (`./index.html`, `sw.js`) funzionano lo stesso: non c'è niente da cambiare.
+## Compilare l'APK su GitHub
 
-## Portarla sul Play Store (Bubblewrap)
+Il workflow `build-apk.yml` fa tutto da solo a ogni modifica. Usa gli stessi segreti di MAIR GO!, quindi se li hai già impostati in quel repository ti basta rimetterli qui.
 
-Serve Node 18+ e un JDK.
+**Settings → Secrets and variables → Actions → New repository secret**, quattro voci:
+
+| Nome | Contenuto |
+|---|---|
+| `KEYSTORE_BASE64` | il file `.keystore` convertito in base64 |
+| `MAIR_KEYSTORE_PASSWORD` | password del keystore |
+| `MAIR_KEY_ALIAS` | alias della chiave |
+| `MAIR_KEY_PASSWORD` | password della chiave |
+
+Se non hai ancora un keystore, se ne crea uno così (una volta sola, sul tuo computer):
 
 ```bash
-npm i -g @bubblewrap/cli
-bubblewrap init --manifest https://<utente>.github.io/deadart/manifest.json
-bubblewrap build
+keytool -genkey -v -keystore deadart-release.keystore \
+  -alias deadart -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 deadart-release.keystore > keystore.txt
 ```
 
-Alla prima esecuzione crea la chiave di firma: **conservala**, senza quella non puoi più aggiornare l'app.
+Il contenuto di `keystore.txt` va in `KEYSTORE_BASE64`. **Conserva il file `.keystore`**: senza quello non potrai più aggiornare l'app.
 
-Poi:
+Poi: **Actions → Compila APK DeadArt → Run workflow**. Al termine, in fondo alla pagina della esecuzione, trovi `DeadArt-APK` da scaricare e installare sul telefono.
 
-1. Copia il `sha256` della chiave (`bubblewrap fingerprint list`).
-2. Crea il file `.well-known/assetlinks.json` nella radice del sito, con quel fingerprint e il nome pacchetto, per togliere la barra del browser dall'app.
-3. Su Google Play Console: crea l'app, carica l'`.aab`, compila la scheda e il modulo *Data safety*.
+## Portarla sul Play Store
 
-Nel modulo Data safety la risposta è sempre la stessa: l'app **non raccoglie e non condivide alcun dato**, tutto resta sul dispositivo. Serve comunque un'informativa privacy raggiungibile da un URL pubblico: una pagina di tre righe che dica esattamente questo è sufficiente.
+L'APK del workflow serve per provare e per l'installazione diretta. Per il Play Store serve il formato `.aab`: il modo più rapido è **pwabuilder.com** — incolli l'indirizzo di GitHub Pages, poi *Package for stores* → Android → *Generate package*, con package ID `info.dandreart.deadart`.
 
-## Nota sui caratteri
+Nella Play Console, nel modulo *Data safety*, la risposta è sempre la stessa: **nessun dato raccolto, nessun dato condiviso**. Come URL dell'informativa privacy indica `https://<utente>.github.io/<repo>/privacy.html`.
 
-I font (Fraunces, IBM Plex Mono) arrivano da Google Fonts. Senza rete l'app usa i caratteri di sistema e resta perfettamente leggibile. Se vuoi che l'aspetto sia identico anche offline, scarica i `.woff2` in una cartella `fonts/`, sostituisci il `<link>` con un `@font-face`, e aggiungi i file all'elenco `FILES` dentro `sw.js`.
+Nota: gli account sviluppatore personali aperti dopo novembre 2023 devono prima completare un test chiuso con almeno 12 tester per 14 giorni consecutivi.
+
+## Prima di pubblicare
+
+Apri `privacy.html` e sostituisci `INSERISCI-QUI-LA-TUA-EMAIL` con il tuo indirizzo: Google richiede un contatto raggiungibile.
 
 ## Licenza
 
