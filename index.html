@@ -258,9 +258,19 @@ async function comprimi(file){
   while(peso(out)>MAXBYTE&&lato>700){lato=Math.round(lato*.82);out=rid(im,lato,.72)}
   return {full:out,thumb:rid(im,420,.62),ratio:+(im.width/im.height).toFixed(3)};
 }
-function scaricaFile(dataUrl,nome){
-  const a=document.createElement('a'); a.href=dataUrl; a.download=nome;
-  document.body.appendChild(a); a.click(); a.remove(); toast('Salvata nei Download: '+nome);
+function daDataUrl(u){const [t,b]=u.split(',');const mime=(t.match(/:(.*?);/)||[])[1]||'application/octet-stream';
+  const bin=atob(b);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime})}
+async function condividi(dataUrl,nome,testo){
+  const blob = typeof dataUrl==='string' && dataUrl.startsWith('data:') ? daDataUrl(dataUrl) : dataUrl;
+  const file = new File([blob], nome, {type:blob.type});
+  try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:nome, text:testo||nome}); return } }
+  catch(e){ if(e && e.name==='AbortError') return; }
+  try{ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nome;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast('Salvata: '+nome); return }
+  catch(e){}
+  const url=URL.createObjectURL(blob); window.open(url,'_blank'); toast('Tieni premuto sull\'immagine per salvarla');
 }
 
 /* ===== viste ===== */
@@ -346,7 +356,10 @@ function vInfo(){return `<div class="info">
  <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
  <div class="occhiello">Copia di sicurezza</div>
  <p style="font-size:14.5px;margin-top:12px">I dati stanno solo qui: se cambi telefono o disinstalli l'app, spariscono. Esporta ogni tanto.</p></div>
- <button class="btn ghost" id="exp">esporta tutto (.json)</button>
+ <button class="btn giallo" id="exp">esporta e condividi la copia</button>
+ <button class="btn ghost" id="imp">importa una copia</button>
+ <input type="file" id="fImp" accept=".json,application/json" hidden>
+ <p class="nota">La copia è un file <b>.json</b> con dentro tutte le schede, le foto e le registrazioni. Condividilo su Drive, Telegram o mandalo a te stesso per email: per riprenderlo, tocca «importa» e scegli quel file.</p>
  <button class="btn rossa" id="wipe">cancella tutto</button>`;
 }
 function vPriv(){return `<div class="info">
@@ -387,8 +400,11 @@ function moduloCantiere(i){ i=i||{};
   <label>Tecnica</label><div class="chips">${chipSet(TECNICHE,'tecnica')}</div>
   <input id="tecAltro" placeholder="oppure scrivila" style="margin-top:10px" value="${TECNICHE.includes(i.tecnica)?'':esc(i.tecnica)}">
   <label>Supporto</label><div class="chips">${chipSet(SUPPORTI,'supporto')}</div>
+  <input id="supAltro" placeholder="oppure scrivilo" style="margin-top:10px" value="${SUPPORTI.includes(i.supporto)?'':esc(i.supporto)}">
   <label>Cartella</label><input id="progetto" list="prjs" value="${esc(i.progetto)}" placeholder="nome del progetto"><datalist id="prjs">${cartelle()}</datalist>
   <label>Intenzione di partenza</label><textarea id="note" placeholder="cosa vuoi da questo lavoro, adesso che non l'hai ancora fatto">${esc(i.note)}</textarea>
+  <label>Nota vocale</label><div class="reg"><button id="mic2">${draft.audio?'registrata · rifai':'registra, fino a 60 secondi'}</button><div class="prog"><i id="pbar"></i></div><div id="vp2">${draft.audio?`<audio controls src="${draft.audio}"></audio>`:''}</div></div>
+  <p class="nota">Parla mentre guardi la tela: cosa vuoi da questo lavoro.</p>
   <button class="btn" id="salva">${editId?'salva le modifiche':'apri il cantiere'}</button>`;
 }
 function moduloScarto(i){ i=i||{};
@@ -404,6 +420,7 @@ function moduloScarto(i){ i=i||{};
   <label>Tecnica</label><div class="chips">${chipSet(TECNICHE,'tecnica')}</div>
   <input id="tecAltro" placeholder="oppure scrivila" style="margin-top:10px" value="${TECNICHE.includes(i.tecnica)?'':esc(i.tecnica)}">
   <label>Supporto</label><div class="chips">${chipSet(SUPPORTI,'supporto')}</div>
+  <input id="supAltro" placeholder="oppure scrivilo" style="margin-top:10px" value="${SUPPORTI.includes(i.supporto)?'':esc(i.supporto)}">
   <label>Che fine ha fatto</label><div class="chips">${chipSet(DESTINI,'destino')}</div>
   <div class="due"><div><label>Scartata il</label><input type="date" id="dScarto" value="${i.dataScarto||oggi()}"></div>
   <div><label>Iniziata il</label><input type="date" id="dInizio" value="${i.dataInizio||''}"></div></div>
@@ -434,7 +451,9 @@ function comuni(){
     $('#sIn').querySelectorAll('.chip[data-k="'+k+'"]').forEach(x=>x.classList.toggle('on',x.dataset.v===draft[k]))});
   $('#sIn').querySelectorAll('.fmt').forEach(c=>c.onclick=()=>{const[a,b]=c.dataset.f.split('×');$('#base').value=a;$('#alt').value=b});
 }
-function legaCantiere(){ rullino(false); comuni(); $('#salva').onclick=salvaCantiere; }
+function legaCantiere(){ rullino(false); comuni();
+  $('#mic2').onclick=()=>registra($('#mic2'),60,b=>{draft.audio=b;$('#vp2').innerHTML=`<audio controls src="${b}"></audio>`});
+  $('#salva').onclick=salvaCantiere; }
 function legaScarto(){ rullino(true); comuni();
   $('#mic2').onclick=()=>registra($('#mic2'),60,b=>{draft.audio=b;$('#vp2').innerHTML=`<audio controls src="${b}"></audio>`});
   $('#salva').onclick=salvaScarto; }
@@ -442,22 +461,24 @@ const val=id=>{const e=$('#'+id);return e?(e.value||'').trim():''};
 
 async function salvaCantiere(){
   const d={ tipo:'cantiere', titolo:val('titolo'), anno:val('anno'), base:val('base'), altezza:val('alt'),
-    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto, dataInizio:val('dInizio'),
+    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto||val('supAltro'), dataInizio:val('dInizio'),
     progetto:val('progetto'), note:val('note') };
   if(draft.thumb){d.thumb=draft.thumb;d.ratio=draft.ratio}
   if(editId){ const i=items.find(x=>x.id===editId); Object.assign(i,d); await Store.salva(i);
-    const m=await Store.media(editId);
+    const m=await Store.media(editId); m.audio=draft.audio||m.audio;
     if(draft.photos[0]&&!(m.fasi&&m.fasi.length)){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:'',foto:draft.photos[0]}];
-      i.nFasi=1; i.ultima=now(); await Store.setMedia(editId,m); await Store.salva(i); } }
+      i.nFasi=1; i.ultima=now(); await Store.salva(i); }
+    await Store.setMedia(editId,m); }
   else { const o=Object.assign({id:draft.id,createdAt:now(),chiuso:false,nFasi:0,ultima:null},d); items.push(o);
-    const m=vuotoMedia(); if(draft.photos[0]){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:val('note'),foto:draft.photos[0]}]; o.nFasi=1; o.ultima=now(); }
+    const m=vuotoMedia(); m.audio=draft.audio;
+    if(draft.photos[0]){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:val('note'),foto:draft.photos[0]}]; o.nFasi=1; o.ultima=now(); }
     await Store.salva(o); await Store.setMedia(o.id,m); }
   chiudiSheet(); tab='cant'; render(); toast(editId?'Modificata.':'Cantiere aperto.');
 }
 async function salvaScarto(){
   const ds=val('dScarto'), di=val('dInizio');
   const d={ tipo:'scarto', titolo:val('titolo'), anno:val('anno'), base:val('base'), altezza:val('alt'),
-    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto, destino:draft.destino, fase:$('#fase')?$('#fase').value:'',
+    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto||val('supAltro'), destino:draft.destino, fase:$('#fase')?$('#fase').value:'',
     copertaDa:$('#copertaDa')?$('#copertaDa').value:'', dataScarto:ds, dataInizio:di, ubicaz:val('ubicaz'), note:val('note'),
     titoliScartati:val('titoliScartati'), progetto:val('progetto'),
     vita:(ds&&di)?Math.max(0,Math.round((new Date(ds)-new Date(di))/D)):null,
@@ -481,6 +502,7 @@ async function apriCantiere(id){
    <div class="dl">
      ${r('Anno',c.anno)}${r('Dimensioni',misure(c))}${r('Tecnica',c.tecnica)}${r('Supporto',c.supporto)}
      ${r('Iniziata il',it(c.dataInizio))}${r('Cartella',c.progetto)}${r('Intenzione',c.note)}</div>
+   ${m.audio?`<label>Nota vocale dell'opera</label><audio controls src="${m.audio}"></audio>`:''}
    <div class="avanz"><i style="width:${Math.min(100,fasi.length*12)}%"></i></div>
    <button class="btn giallo" id="addFase">+ aggiungi una fase</button>
    <input type="file" id="fFase" accept="image/*" capture="environment" hidden>
@@ -499,8 +521,16 @@ async function apriCantiere(id){
     await Store.setMedia(id,m); c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
     await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); };
 
-  $('#sIn').querySelectorAll('[data-scarica]').forEach(b=>b.onclick=()=>{
-    const f=fasi[+b.dataset.scarica]; scaricaFile(f.foto, slug(c.titolo)+'-fase-'+String(+b.dataset.scarica+1).padStart(2,'0')+'.jpg'); });
+  $('#sIn').querySelectorAll('[data-cond]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.cond, f=fasi[n];
+    condividi(f.foto, slug(c.titolo)+'-fase-'+String(n+1).padStart(2,'0')+'.jpg',
+      (c.titolo||'')+' — fase '+(n+1)+(f.nome?': '+f.nome:'')); });
+  $('#sIn').querySelectorAll('[data-vocefase]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.vocefase, f=fasi[n];
+    const w=$('#pbar-w-'+n); if(w)w.style.display='block';
+    registraSu(b, 60, 'pbar-'+n, async b64=>{
+      const vera=m.fasi.find(x=>x.id===f.id); vera.audio=b64; await Store.setMedia(id,m);
+      apriCantiere(id); toast('Voce aggiunta alla fase.'); }); });
   $('#sIn').querySelectorAll('[data-modfase]').forEach(b=>b.onclick=async()=>{
     const n=+b.dataset.modfase, f=fasi[n];
     const nome=prompt('Nome della fase:',f.nome||''); if(nome===null)return;
@@ -527,10 +557,12 @@ function faseHTML(c,f,n){
    <img src="${f.foto}" alt="" loading="lazy">
    <div class="nm">${esc(f.nome||'senza nome')}</div>
    ${f.nota?`<div class="tx">${esc(f.nota)}</div>`:'<div style="height:10px"></div>'}
-   <div class="az"><a data-scarica="${n}">scarica ↓</a><button data-modfase="${n}">modifica</button><button class="canc" data-delfase="${n}">elimina</button></div></div>`;
+   ${f.audio?`<div style="padding:0 12px 12px"><audio controls src="${f.audio}"></audio></div>`:''}
+   <div class="az"><a data-cond="${n}">condividi ↗</a><button data-vocefase="${n}">${f.audio?'rivoce':'voce'}</button><button data-modfase="${n}">modifica</button><button class="canc" data-delfase="${n}">elimina</button></div>
+   <div class="prog" id="pbar-w-${n}" style="display:none;margin:0"><i id="pbar-${n}"></i></div></div>`;
 }
 async function modificaCantiere(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
-  draft={id,tipo:'cantiere',photos:(m.fasi&&m.fasi[0])?[m.fasi[0].foto]:[],thumb:i.thumb,ratio:i.ratio,tecnica:i.tecnica||'',supporto:i.supporto||''};
+  draft={id,tipo:'cantiere',photos:(m.fasi&&m.fasi[0])?[m.fasi[0].foto]:[],thumb:i.thumb,ratio:i.ratio,audio:m.audio,tecnica:i.tecnica||'',supporto:i.supporto||''};
   editId=id; apriSheet('Modifica opera',moduloCantiere(i)); legaCantiere(); }
 
 /* ===== dettaglio scarto ===== */
@@ -541,7 +573,7 @@ async function apriScarto(id){
   const r=(k,v)=>v?`<div class="r"><dt>${k}</dt><dd>${esc(v)}</dd></div>`:'';
   const gg=Math.max(0,Math.ceil((i.createdAt+ATTESA-now())/D));
   apriSheet('Scheda',`
-   ${(m.photos||[]).map((p,n)=>`<div class="foto"><img class="hero" src="${p}" alt=""><br><a class="scarica" data-scarica="${n}">scarica ↓</a></div>`).join('')
+   ${(m.photos||[]).map((p,n)=>`<div class="foto"><img class="hero" src="${p}" alt=""><br><a class="scarica" data-cond="${n}">condividi ↗</a></div>`).join('')
      ||'<div class="vuoto"><p>Nessuna immagine.</p><span>Puoi aggiungerla dalla modifica.</span></div>'}
    <div class="dparola ${i.parola?'':'vuota'}">${esc(i.parola||(i.dimenticata?'dimenticata':(i.titolo||'senza titolo')))}</div>
    <div class="riga">${i.parola?esc(i.titolo||'senza titolo'):'in decantazione'}${(!i.parola&&!i.dimenticata)?' · ancora '+gg+' giorni':''}</div>
@@ -553,8 +585,9 @@ async function apriScarto(id){
    ${m.voce?`<label>I cinque secondi</label><audio controls src="${m.voce}"></audio>`:''}
    ${m.audio?`<label>Nota vocale</label><audio controls src="${m.audio}"></audio>`:''}
    <button class="btn rossa" id="del">cancella questa scheda</button>`, ()=>modificaScarto(id));
-  $('#sIn').querySelectorAll('[data-scarica]').forEach(b=>b.onclick=()=>{
-    const n=+b.dataset.scarica; scaricaFile(m.photos[n], slug(i.parola||i.titolo)+'-'+String(n+1).padStart(2,'0')+'.jpg'); });
+  $('#sIn').querySelectorAll('[data-cond]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.cond; condividi(m.photos[n], slug(i.parola||i.titolo)+'-'+String(n+1).padStart(2,'0')+'.jpg',
+      (i.parola||i.titolo||'opera')); });
   $('#del').onclick=()=>cancella(id);
 }
 async function modificaScarto(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
@@ -565,11 +598,12 @@ async function cancella(id){ if(!confirm('Cancellare per sempre? Immagini e regi
   items=items.filter(x=>x.id!==id); await Store.togli(id); await Store.delMedia(id); chiudiSheet(); render(); toast('Cancellata.'); }
 
 /* ===== voce ===== */
-async function registra(btn,secs,fatto){
+const registra=(btn,secs,fatto)=>registraSu(btn,secs,'pbar',fatto);
+async function registraSu(btn,secs,barId,fatto){
   if(rec&&rec.state==='recording'){rec.stop();return}
   let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:true}) }catch(e){ toast('Microfono non disponibile'); return }
   const pz=[]; rec=new MediaRecorder(st); rec.ondataavailable=e=>pz.push(e.data);
-  const t0=Date.now(), bar=$('#pbar');
+  const t0=Date.now(), bar=document.getElementById(barId);
   const iv=setInterval(()=>{const p=(Date.now()-t0)/(secs*1000);if(bar)bar.style.width=Math.min(100,p*100)+'%';if(p>=1&&rec.state==='recording')rec.stop()},80);
   rec.onstop=()=>{clearInterval(iv);st.getTracks().forEach(t=>t.stop());btn.classList.remove('live');btn.textContent='registrata · rifai';
     const f=new FileReader();f.onload=()=>fatto(f.result);f.readAsDataURL(new Blob(pz,{type:'audio/webm'}))};
@@ -596,10 +630,30 @@ function lega(){
     $('#sigilla').onclick=async()=>{ const w=($('#pw').value||'').trim().split(/\s+/)[0]; if(!w){toast('Serve una parola.');return}
       const i=items.find(x=>x.id===dec.dataset.id); i.parola=w; i.parolaAt=now(); await Store.salva(i);
       if(voce){const m=await Store.media(i.id);m.voce=voce;await Store.setMedia(i.id,m)} render(); toast('Sigillata: '+w); }; }
-  const ex=$('#exp'); if(ex)ex.onclick=async()=>{ const out={app:'DeadArt',data:new Date().toISOString(),items,media:{}};
+  const ex=$('#exp'); if(ex)ex.onclick=async()=>{
+    if(!items.length){toast('Non c\'è ancora niente da salvare.');return}
+    toast('Sto preparando la copia…');
+    const out={app:'DeadArt',versione:1,data:new Date().toISOString(),items,media:{}};
     for(const i of items) out.media[i.id]=await Store.media(i.id);
-    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
-    a.download='deadart-'+oggi()+'.json'; a.click(); toast('Copia salvata nei Download.') };
+    const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+    await condividi(blob,'deadart-'+oggi()+'.json','Copia di sicurezza DeadArt'); };
+  const im=$('#imp'); if(im)im.onclick=()=>$('#fImp').click();
+  const fi=$('#fImp'); if(fi)fi.onchange=async e=>{
+    const f=e.target.files[0]; if(!f)return; e.target.value='';
+    try{
+      const dati=JSON.parse(await f.text());
+      if(!dati.items||!Array.isArray(dati.items)) throw new Error('formato');
+      if(!confirm('Importare '+dati.items.length+' schede? Quelle già presenti con lo stesso identificativo verranno sostituite.'))return;
+      toast('Sto importando…');
+      for(const o of dati.items){
+        if(!o.tipo)o.tipo='scarto';
+        const g=items.findIndex(x=>x.id===o.id);
+        if(g>=0) items[g]=o; else items.push(o);
+        await Store.salva(o);
+        if(dati.media&&dati.media[o.id]) await Store.setMedia(o.id,dati.media[o.id]);
+      }
+      render(); toast('Importate '+dati.items.length+' schede.');
+    }catch(err){ toast('Il file non è una copia di DeadArt.'); } };
   const wp=$('#wipe'); if(wp)wp.onclick=async()=>{ if(!confirm('Cancellare tutto? Non si torna indietro.'))return;
     for(const i of items){await Store.togli(i.id);await Store.delMedia(i.id)} items=[]; if(Store.modo==='anteprima')await Store.salva();
     render(); toast('Archivio vuoto.') };
