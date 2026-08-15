@@ -263,16 +263,37 @@ function daDataUrl(u){const [t,b]=u.split(',');const mime=(t.match(/:(.*?);/)||[
   return new Blob([arr],{type:mime})}
 async function condividi(dataUrl,nome,testo){
   const blob = typeof dataUrl==='string' && dataUrl.startsWith('data:') ? daDataUrl(dataUrl) : dataUrl;
-  const file = new File([blob], nome, {type:blob.type});
+  const file = new File([blob], nome, {type:blob.type||'application/octet-stream'});
+  // 1. condivisione di sistema (Chrome, PWA installata)
   try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:nome, text:testo||nome}); return } }
   catch(e){ if(e && e.name==='AbortError') return; }
-  try{ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nome;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast('Salvata: '+nome); return }
-  catch(e){}
-  const url=URL.createObjectURL(blob); window.open(url,'_blank'); toast('Tieni premuto sull\'immagine per salvarla');
+  // 2. salvataggio classico
+  let scaricato=false;
+  try{ const a=document.createElement('a'); const url=URL.createObjectURL(blob);
+    if('download' in a){ a.href=url; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),6000); scaricato=true; } }catch(e){}
+  // 3. finestra: l'immagine a schermo, si tiene premuto e si salva
+  if(!scaricato || /Android/i.test(navigator.userAgent)){ mostraSalvataggio(dataUrl,nome,blob,scaricato) }
+  else toast('Salvata: '+nome);
 }
-
+function mostraSalvataggio(dataUrl,nome,blob,scaricato){
+  const url = (typeof dataUrl==='string'&&dataUrl.startsWith('data:')) ? dataUrl : URL.createObjectURL(blob);
+  const immagine = (blob.type||'').startsWith('image/');
+  const d=document.createElement('div'); d.id='salvaBox';
+  d.style.cssText='position:fixed;inset:0;z-index:300;background:#0B0B0B;overflow-y:auto;padding:18px;color:#FAF6EC;font-family:var(--mono)';
+  d.innerHTML=`<div style="max-width:620px;margin:0 auto">
+    <div style="font-family:var(--disp);font-size:24px;line-height:1.15;margin-bottom:6px">Salva questa ${immagine?'immagine':'copia'}</div>
+    <div style="font-size:13.5px;color:#C9C3B6;margin-bottom:16px">${immagine
+      ? 'Tieni premuto sull\'immagine e scegli «Scarica immagine» o «Salva immagine».'
+      : 'Tocca il pulsante giallo: si apre il file, poi usa il menù del browser per salvarlo o mandarlo dove vuoi.'}${scaricato?'<br>Se è già finita nei Download, chiudi pure.':''}</div>
+    ${immagine?`<img src="${url}" style="width:100%;display:block;border:2px solid #FAF6EC">`
+      :`<a href="${url}" target="_blank" rel="noopener" download="${nome}" style="display:block;text-align:center;background:#F5B301;color:#0B0B0B;border:2px solid #FAF6EC;padding:16px;font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none">apri ${nome}</a>`}
+    <div style="font-size:12px;color:#8C867A;margin-top:12px;text-align:center">${nome}</div>
+    <button id="chiudiSalva" style="width:100%;margin-top:20px;background:#D22B1E;color:#fff;border:2px solid #FAF6EC;padding:15px;font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer">chiudi</button>
+  </div>`;
+  document.body.appendChild(d);
+  d.querySelector('#chiudiSalva').onclick=()=>d.remove();
+}
 /* ===== viste ===== */
 async function scaduti(){for(const i of items){if(i.tipo==='scarto'&&!i.parola&&!i.dimenticata&&now()>i.createdAt+FINESTRA){i.dimenticata=true;await Store.salva(i)}}}
 const scarti=()=>items.filter(i=>i.tipo==='scarto');
@@ -601,7 +622,15 @@ async function cancella(id){ if(!confirm('Cancellare per sempre? Immagini e regi
 const registra=(btn,secs,fatto)=>registraSu(btn,secs,'pbar',fatto);
 async function registraSu(btn,secs,barId,fatto){
   if(rec&&rec.state==='recording'){rec.stop();return}
-  let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:true}) }catch(e){ toast('Microfono non disponibile'); return }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Questa versione dell\'app non può usare il microfono'); return }
+  if(typeof MediaRecorder==='undefined'){ toast('Registrazione non supportata su questo telefono'); return }
+  let st;
+  try{ st=await navigator.mediaDevices.getUserMedia({audio:true}) }
+  catch(e){ const n=(e&&e.name)||'';
+    toast( n==='NotAllowedError' ? 'Permesso microfono negato: autorizzalo nelle impostazioni'
+         : n==='NotFoundError' ? 'Nessun microfono trovato'
+         : n==='NotReadableError' ? 'Il microfono è occupato da un\'altra app'
+         : 'Microfono non disponibile'+(n?' ('+n+')':'') ); return }
   const pz=[]; rec=new MediaRecorder(st); rec.ondataavailable=e=>pz.push(e.data);
   const t0=Date.now(), bar=document.getElementById(barId);
   const iv=setInterval(()=>{const p=(Date.now()-t0)/(secs*1000);if(bar)bar.style.width=Math.min(100,p*100)+'%';if(p>=1&&rec.state==='recording')rec.stop()},80);
