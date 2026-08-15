@@ -39,6 +39,28 @@ jobs:
       - name: Sincronizza i file dell'app
         run: npx cap sync android
 
+      - name: Aggiungi i permessi di microfono e fotocamera
+        run: |
+          python3 - << 'PYPERM'
+          p='android/app/src/main/AndroidManifest.xml'
+          s=open(p).read()
+          perms = [
+              '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
+              '<uses-permission android:name="android.permission.CAMERA" />',
+              '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
+              '<uses-feature android:name="android.hardware.camera" android:required="false" />',
+              '<uses-feature android:name="android.hardware.microphone" android:required="false" />',
+          ]
+          mancanti = [x for x in perms if x.split('android:name="')[1].split('"')[0] not in s]
+          if mancanti:
+              s = s.replace('</manifest>', '    ' + '\n    '.join(mancanti) + '\n</manifest>')
+              open(p,'w').write(s)
+              print('Aggiunti:', len(mancanti))
+          else:
+              print('Permessi gia presenti')
+          print(s)
+          PYPERM
+
       - name: Guarda se c'e' una chiave di firma tua
         id: chiave
         env:
