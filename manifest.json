@@ -1,0 +1,17 @@
+{
+  "name": "DeadArt",
+  "short_name": "DeadArt",
+  "description": "L'archivio delle opere che non ci sono piu. Di Maurizio D'Andrea.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17150F",
+  "theme_color": "#17150F",
+  "lang": "it",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
