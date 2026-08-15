@@ -5,171 +5,179 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>DeadArt</title>
 <meta name="description" content="Il cantiere delle opere in corso e l'archivio delle opere che non ci sono più. Di Maurizio D'Andrea.">
-<meta name="theme-color" content="#F3F0E8">
+<meta name="theme-color" content="#FAF6EC">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --carta:#F3F0E8; --tela:#FBF9F4; --ombreggio:#EAE5D9;
-  --inchiostro:#232019; --seppia:#7A7263; --linea:#D6D0C0;
-  --verde:#63734C; --sanguigna:#A34A2E;
-  --disp:"Fraunces",Georgia,"Times New Roman",serif;
+  --carta:#FAF6EC; --bianco:#FFFCF5; --nero:#0B0B0B; --grigio:#5A554C;
+  --rosso:#D22B1E; --giallo:#F5B301; --linea:#0B0B0B;
+  --disp:"Archivo Black",Impact,"Arial Black",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--carta);color:var(--inchiostro)}
-body{font-family:var(--mono);font-size:14px;line-height:1.5;padding-bottom:112px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-#grana{position:fixed;inset:0;pointer-events:none;z-index:90;opacity:.05;mix-blend-mode:multiply;
- background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.wrap{max-width:660px;margin:0 auto;padding:0 20px}
+html,body{margin:0;background:var(--carta);color:var(--nero)}
+body{font-family:var(--mono);font-size:16px;line-height:1.55;padding-bottom:118px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:660px;margin:0 auto;padding:0 18px}
 
-#splash{position:fixed;inset:0;z-index:200;background:var(--carta);display:flex;flex-direction:column;
- align-items:center;justify-content:center;gap:20px;transition:opacity .55s ease}
+/* splash */
+#splash{position:fixed;inset:0;z-index:200;background:var(--nero);display:flex;flex-direction:column;
+ align-items:center;justify-content:center;gap:24px;transition:opacity .5s ease}
 #splash.via{opacity:0;pointer-events:none}
-#splash svg{width:132px;height:132px}
-#splash path{stroke:var(--verde);stroke-width:1.6;fill:none;stroke-linecap:round;
- stroke-dasharray:1400;stroke-dashoffset:1400;animation:traccia 1.5s cubic-bezier(.4,0,.2,1) forwards}
+#splash svg{width:140px;height:140px}
+#splash path{stroke:var(--rosso);stroke-width:2.4;fill:none;stroke-linecap:round;
+ stroke-dasharray:1400;stroke-dashoffset:1400;animation:traccia 1.4s cubic-bezier(.4,0,.2,1) forwards}
 @keyframes traccia{to{stroke-dashoffset:0}}
-#splash .n{font-family:var(--disp);font-weight:300;font-size:44px;letter-spacing:-.035em;opacity:0;animation:vieni .7s .8s forwards}
-#splash .n b{font-weight:700;font-style:italic}
-#splash .s{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--seppia);opacity:0;animation:vieni .7s 1.1s forwards;text-align:center;padding:0 30px}
+#splash .n{font-family:var(--disp);font-size:46px;letter-spacing:-.02em;color:var(--carta);opacity:0;animation:vieni .6s .7s forwards}
+#splash .n i{font-style:normal;color:var(--giallo)}
+#splash .s{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--giallo);opacity:0;animation:vieni .6s 1s forwards;text-align:center;padding:0 28px}
 @keyframes vieni{to{opacity:1}}
 
-header{position:relative;padding:28px 0 2px;overflow:hidden}
-header .spir{position:absolute;right:-64px;top:-52px;width:210px;height:210px;opacity:.2;pointer-events:none}
-.marchio{font-family:var(--disp);font-weight:300;font-size:clamp(34px,11vw,48px);line-height:.92;letter-spacing:-.035em;position:relative}
-.marchio b{font-weight:700;font-style:italic}
-.sotto{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--seppia);margin-top:9px}
-nav{display:flex;gap:19px;margin:20px 0 2px;border-bottom:1px solid var(--linea);overflow-x:auto;scrollbar-width:none}
+/* testata */
+header{background:var(--nero);margin:0 -18px;padding:26px 18px 20px;position:relative;overflow:hidden}
+header .spir{position:absolute;right:-56px;top:-46px;width:190px;height:190px;opacity:.5;pointer-events:none}
+.marchio{font-family:var(--disp);font-size:clamp(36px,12vw,52px);line-height:.92;letter-spacing:-.025em;color:var(--carta);position:relative}
+.marchio i{font-style:normal;color:var(--giallo)}
+.sotto{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--giallo);margin-top:10px;position:relative}
+nav{display:flex;gap:0;margin:0 -18px 0;background:var(--nero);overflow-x:auto;scrollbar-width:none;border-top:1px solid #262626}
 nav::-webkit-scrollbar{display:none}
-nav button{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:0 0 10px;
- font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--seppia);cursor:pointer;white-space:nowrap}
-nav button.on{color:var(--inchiostro);border-color:var(--verde)}
-nav .dot{display:inline-block;min-width:15px;padding:1px 4px;margin-left:5px;background:var(--sanguigna);color:#fff;font-size:9px;border-radius:9px}
+nav button{background:none;border:0;padding:13px 15px;font-family:var(--mono);font-weight:600;font-size:11px;letter-spacing:.1em;
+ text-transform:uppercase;color:#B8B2A6;cursor:pointer;white-space:nowrap}
+nav button.on{color:var(--nero);background:var(--giallo)}
+nav .dot{display:inline-block;min-width:17px;padding:1px 5px;margin-left:6px;background:var(--rosso);color:#fff;font-size:10px;border-radius:9px}
 
-h2{font-family:var(--disp);font-weight:300;font-size:26px;letter-spacing:-.025em;margin:24px 0 2px}
-.occhiello{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--verde);margin-top:26px}
-.seppia{color:var(--seppia)}
+h2{font-family:var(--disp);font-size:27px;letter-spacing:-.02em;margin:24px 0 6px;line-height:1.1}
+.occhiello{display:inline-block;background:var(--nero);color:var(--giallo);font-size:10px;font-weight:600;letter-spacing:.15em;
+ text-transform:uppercase;padding:4px 9px;margin-top:28px}
+.grigio{color:var(--grigio)}
+p{margin:0 0 14px}
 
-.stat{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);margin-top:16px}
-.stat div{padding:13px 3px;text-align:center;border-right:1px solid var(--linea)}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);border:2px solid var(--nero);margin-top:18px;background:var(--bianco)}
+.stat div{padding:14px 3px;text-align:center;border-right:1px solid var(--nero)}
 .stat div:last-child{border-right:0}
-.stat b{display:block;font-family:var(--disp);font-weight:300;font-size:28px;line-height:1;letter-spacing:-.03em}
-.stat span{display:block;font-size:8px;letter-spacing:.13em;text-transform:uppercase;color:var(--seppia);margin-top:6px}
+.stat b{display:block;font-family:var(--disp);font-size:29px;line-height:1}
+.stat span{display:block;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--grigio);margin-top:6px}
 
-.grid{columns:2;column-gap:13px;margin-top:18px}
+.grid{columns:2;column-gap:12px;margin-top:18px}
 @media(max-width:380px){.grid{columns:1}}
-.card{break-inside:avoid;margin-bottom:13px;background:var(--tela);border:1px solid var(--linea);cursor:pointer;position:relative;overflow:hidden;transition:.22s}
-.card:hover{border-color:var(--verde)}
-.card:active{transform:scale(.985)}
-.card img{display:block;width:100%;height:auto}
-.card .noimg{aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:var(--linea);font-size:36px}
+.card{break-inside:avoid;margin-bottom:12px;background:var(--bianco);border:2px solid var(--nero);cursor:pointer;position:relative;overflow:hidden}
+.card:active{transform:translate(1px,1px)}
+.card img{display:block;width:100%;height:auto;border-bottom:2px solid var(--nero)}
+.card .noimg{aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:var(--linea);font-size:40px;border-bottom:2px solid var(--nero)}
 .card .bd{padding:11px 12px 13px}
-.parola{font-family:var(--disp);font-weight:300;font-size:25px;line-height:1;letter-spacing:-.025em;word-break:break-word}
-.parola.vuota{font-style:italic;color:var(--sanguigna);font-size:17px}
-.meta{font-size:9px;letter-spacing:.09em;color:var(--seppia);margin-top:6px;text-transform:uppercase}
-.bollo{position:absolute;top:8px;left:8px;background:var(--carta);border:1px solid var(--linea);padding:3px 7px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--verde)}
-.bollo.rosso{color:var(--sanguigna);border-color:var(--sanguigna)}
-.pile{position:absolute;top:8px;right:8px;background:var(--carta);border:1px solid var(--linea);padding:3px 7px;font-size:8.5px;color:var(--seppia)}
+.parola{font-family:var(--disp);font-size:24px;line-height:1.02;letter-spacing:-.02em;word-break:break-word}
+.parola.vuota{color:var(--rosso);font-size:19px}
+.meta{font-size:11px;font-weight:500;color:var(--grigio);margin-top:7px}
+.bollo{position:absolute;top:0;left:0;background:var(--giallo);color:var(--nero);border-right:2px solid var(--nero);border-bottom:2px solid var(--nero);padding:4px 9px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.bollo.rosso{background:var(--rosso);color:#fff}
+.pile{position:absolute;top:0;right:0;background:var(--nero);color:var(--carta);padding:4px 9px;font-size:10px;font-weight:600}
 
-.vuoto{border:1px solid var(--linea);background:var(--tela);padding:46px 22px;text-align:center;margin-top:22px}
-.vuoto p{font-family:var(--disp);font-weight:300;font-size:22px;margin:0 0 8px;letter-spacing:-.02em}
-.vuoto span{font-size:12.5px;color:var(--seppia)}
+.vuoto{border:2px dashed var(--nero);background:var(--bianco);padding:44px 20px;text-align:center;margin-top:20px}
+.vuoto p{font-family:var(--disp);font-size:22px;margin:0 0 10px;line-height:1.15}
+.vuoto span{font-size:14px;color:var(--grigio)}
 
-.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:40;background:var(--inchiostro);color:var(--carta);
- border:0;padding:15px 28px;font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;box-shadow:0 8px 26px rgba(35,32,25,.22)}
-.btn{display:block;width:100%;background:var(--inchiostro);color:var(--carta);border:0;padding:15px;margin-top:22px;
- font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;text-align:center;text-decoration:none}
-.btn.ghost{background:none;color:var(--inchiostro);border:1px solid var(--linea)}
-.btn.verde{background:var(--verde)}
-.btn.rosso{background:none;color:var(--sanguigna);border:1px solid var(--sanguigna)}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:40;background:var(--rosso);color:#fff;
+ border:2px solid var(--nero);padding:15px 26px;font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.12em;
+ text-transform:uppercase;cursor:pointer;box-shadow:4px 4px 0 var(--nero)}
+.fab:active{transform:translateX(-50%) translate(2px,2px);box-shadow:2px 2px 0 var(--nero)}
+.btn{display:block;width:100%;background:var(--nero);color:var(--carta);border:2px solid var(--nero);padding:15px;margin-top:20px;
+ font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-align:center;text-decoration:none}
+.btn.giallo{background:var(--giallo);color:var(--nero)}
+.btn.rossa{background:var(--rosso);color:#fff}
+.btn.ghost{background:var(--bianco);color:var(--nero)}
 
 .sheet{position:fixed;inset:0;background:var(--carta);z-index:60;overflow-y:auto;display:none}
-.sheet.on{display:block;animation:su .28s ease}
-@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-.bar{position:sticky;top:0;background:rgba(243,240,232,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);
- display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;z-index:5}
-.bar b{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:400;color:var(--seppia)}
-.bar button{background:none;border:0;color:var(--verde);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:4px 0}
-.in{padding:20px 20px 130px;max-width:660px;margin:0 auto}
+.sheet.on{display:block}
+.bar{position:sticky;top:0;background:var(--nero);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;z-index:5}
+.bar b{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--giallo)}
+.bar button{background:none;border:0;color:var(--carta);font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:4px 0}
+.bar button.modi{color:var(--giallo)}
+.in{padding:18px 18px 130px;max-width:660px;margin:0 auto}
 
-label{display:block;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--verde);margin:24px 0 8px}
-input,textarea,select{width:100%;padding:12px 13px;border:1px solid var(--linea);background:var(--tela);
- font-family:var(--mono);font-size:15px;color:var(--inchiostro);border-radius:0;appearance:none}
-input::placeholder,textarea::placeholder{color:#A69E8C}
-textarea{min-height:80px;resize:vertical}
-input:focus,textarea:focus,select:focus{outline:0;border-color:var(--verde)}
-select{background-image:linear-gradient(45deg,transparent 50%,var(--seppia) 50%),linear-gradient(135deg,var(--seppia) 50%,transparent 50%);
- background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;background-size:5px 5px;background-repeat:no-repeat}
-.due{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--nero);margin:22px 0 7px}
+input,textarea,select{width:100%;padding:13px;border:2px solid var(--nero);background:var(--bianco);
+ font-family:var(--mono);font-size:16px;color:var(--nero);border-radius:0;appearance:none}
+input::placeholder,textarea::placeholder{color:#8C867A}
+textarea{min-height:84px;resize:vertical}
+input:focus,textarea:focus,select:focus{outline:0;box-shadow:inset 0 0 0 2px var(--rosso)}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--nero) 50%),linear-gradient(135deg,var(--nero) 50%,transparent 50%);
+ background-position:calc(100% - 19px) 22px,calc(100% - 13px) 22px;background-size:6px 6px;background-repeat:no-repeat}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
-.chip{background:var(--tela);border:1px solid var(--linea);color:var(--seppia);padding:8px 13px;font-family:var(--mono);font-size:12.5px;cursor:pointer;transition:.16s}
-.chip.on{background:var(--verde);border-color:var(--verde);color:#fff}
-.nota{font-size:11.5px;color:var(--seppia);margin-top:9px;line-height:1.5}
+.chip{background:var(--bianco);border:2px solid var(--nero);color:var(--nero);padding:8px 12px;font-family:var(--mono);font-size:13px;cursor:pointer}
+.chip.on{background:var(--rosso);color:#fff}
+.nota{font-size:13px;color:var(--grigio);margin-top:8px;line-height:1.5}
 
 .rullino{display:flex;gap:9px;flex-wrap:wrap}
-.rullino .t{width:80px;height:80px;background:var(--ombreggio) center/cover;border:1px solid var(--linea);position:relative}
-.rullino .t button{position:absolute;top:-8px;right:-8px;width:23px;height:23px;border-radius:12px;border:1px solid var(--carta);background:var(--sanguigna);color:#fff;font-size:13px;line-height:1;cursor:pointer;padding:0}
-.piu{width:80px;height:80px;border:1px dashed var(--linea);background:var(--tela);color:var(--seppia);font-size:10.5px;font-family:var(--mono);cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px}
+.rullino .t{width:82px;height:82px;background:#DDD8CC center/cover;border:2px solid var(--nero);position:relative}
+.rullino .t button{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border:2px solid var(--nero);background:var(--rosso);color:#fff;font-size:13px;line-height:1;cursor:pointer;padding:0}
+.piu{width:82px;height:82px;border:2px dashed var(--nero);background:var(--bianco);color:var(--nero);font-size:11px;font-weight:600;
+ font-family:var(--mono);cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px}
 
-.hero{width:100%;display:block;border:1px solid var(--linea)}
-.foto{margin-bottom:12px}
-.scarica{display:block;text-align:right;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--verde);text-decoration:none;padding:6px 2px}
-.dparola{font-family:var(--disp);font-weight:300;font-size:clamp(38px,13vw,60px);line-height:.93;letter-spacing:-.04em;margin:20px 0 6px}
-.dparola.vuota{font-style:italic;color:var(--sanguigna);font-size:29px}
-.dl{border-top:1px solid var(--linea);margin-top:20px}
-.dl .r{display:grid;grid-template-columns:112px 1fr;gap:14px;padding:11px 0;border-bottom:1px solid var(--linea)}
-.dl dt{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--seppia);padding-top:3px}
-.dl dd{margin:0;font-size:14.5px}
+.hero{width:100%;display:block;border:2px solid var(--nero)}
+.foto{margin-bottom:14px}
+.scarica{display:inline-block;background:var(--giallo);border:2px solid var(--nero);border-top:0;color:var(--nero);
+ font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;padding:7px 13px}
+.dparola{font-family:var(--disp);font-size:clamp(34px,11vw,50px);line-height:.98;letter-spacing:-.03em;margin:18px 0 6px}
+.dparola.vuota{color:var(--rosso);font-size:28px}
+.riga{display:inline-block;background:var(--nero);color:var(--giallo);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px}
+.dl{border:2px solid var(--nero);margin-top:20px;background:var(--bianco)}
+.dl .r{display:grid;grid-template-columns:118px 1fr;gap:12px;padding:11px 12px;border-bottom:1px solid var(--nero)}
+.dl .r:last-child{border-bottom:0}
+.dl dt{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--grigio);padding-top:3px}
+.dl dd{margin:0;font-size:15px}
 audio{width:100%;margin-top:10px}
 
-.fase{position:relative;padding-left:30px;padding-bottom:26px}
-.fase:before{content:'';position:absolute;left:6px;top:6px;width:9px;height:9px;border-radius:5px;background:var(--verde)}
-.fase:after{content:'';position:absolute;left:10px;top:20px;bottom:0;width:1px;background:var(--linea)}
-.fase:last-child:after{display:none}
-.fase .qd{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--seppia)}
-.fase .nm{font-family:var(--disp);font-size:20px;font-weight:300;margin:3px 0 8px;letter-spacing:-.02em}
-.fase img{width:100%;display:block;border:1px solid var(--linea)}
-.fase .tx{font-size:13.5px;margin-top:8px;line-height:1.55}
-.avanz{height:2px;background:var(--linea);margin:16px 0 4px}
-.avanz i{display:block;height:100%;background:var(--verde)}
+.fase{border:2px solid var(--nero);background:var(--bianco);margin-bottom:16px}
+.fase .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--nero);color:var(--carta);padding:8px 11px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fase .cap i{font-style:normal;color:var(--giallo)}
+.fase img{width:100%;display:block;border-bottom:2px solid var(--nero)}
+.fase .nm{font-family:var(--disp);font-size:20px;padding:11px 12px 0;line-height:1.15}
+.fase .tx{font-size:14.5px;padding:6px 12px 12px;line-height:1.5}
+.fase .az{display:flex;border-top:2px solid var(--nero)}
+.fase .az a,.fase .az button{flex:1;text-align:center;padding:10px 4px;font-family:var(--mono);font-size:11px;font-weight:600;
+ letter-spacing:.08em;text-transform:uppercase;background:var(--bianco);border:0;border-right:2px solid var(--nero);color:var(--nero);text-decoration:none;cursor:pointer}
+.fase .az :last-child{border-right:0}
+.fase .az a{background:var(--giallo)}
+.fase .az .canc{color:var(--rosso)}
+.avanz{height:10px;border:2px solid var(--nero);background:var(--bianco);margin:16px 0 0}
+.avanz i{display:block;height:100%;background:var(--rosso)}
 
-.dec{border:1px solid var(--verde);background:var(--tela);padding:26px 22px;margin-top:20px}
-.dec .q{font-family:var(--disp);font-weight:300;font-style:italic;font-size:36px;line-height:1;letter-spacing:-.03em;margin:0 0 10px}
-.dec .sub{font-size:12.5px;color:var(--seppia);margin:0 0 18px;line-height:1.55}
-.dec input{font-family:var(--disp);font-weight:300;font-size:29px;text-align:center;padding:13px}
+.dec{border:3px solid var(--rosso);background:var(--bianco);padding:24px 20px;margin-top:20px}
+.dec .q{font-family:var(--disp);font-size:34px;line-height:1.02;margin:0 0 12px;letter-spacing:-.02em}
+.dec .sub{font-size:14px;color:var(--nero);margin:0 0 18px;line-height:1.55}
+.dec input{font-family:var(--disp);font-size:28px;text-align:center;padding:14px}
 .reg{margin-top:13px}
-.reg button{width:100%;background:var(--tela);border:1px solid var(--linea);color:var(--inchiostro);padding:13px;font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;cursor:pointer}
-.reg button.live{border-color:var(--sanguigna);color:var(--sanguigna)}
-.prog{height:2px;background:var(--linea);margin-top:11px}
-.prog i{display:block;height:100%;width:0;background:var(--sanguigna);transition:width .1s linear}
+.reg button{width:100%;background:var(--bianco);border:2px solid var(--nero);color:var(--nero);padding:13px;font-family:var(--mono);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.reg button.live{background:var(--rosso);color:#fff}
+.prog{height:6px;border:2px solid var(--nero);margin-top:11px;background:var(--bianco)}
+.prog i{display:block;height:100%;width:0;background:var(--rosso);transition:width .1s linear}
 
-.cart{border:1px solid var(--linea);background:var(--tela);padding:16px 17px;margin-top:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.cart:hover{border-color:var(--verde)}
-.cart b{font-family:var(--disp);font-weight:300;font-size:22px;letter-spacing:-.02em}
-.cart span{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--seppia);white-space:nowrap}
+.cart{border:2px solid var(--nero);background:var(--bianco);padding:15px 16px;margin-top:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.cart b{font-family:var(--disp);font-size:21px;letter-spacing:-.02em}
+.cart span{font-size:11px;font-weight:600;color:var(--grigio);white-space:nowrap}
 
-.info p{font-size:14.5px;line-height:1.62}
-.info em{color:var(--verde);font-style:italic}
-.firma{font-family:var(--disp);font-weight:300;font-style:italic;font-size:23px;margin-top:28px;letter-spacing:-.02em}
-.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--inchiostro);color:var(--carta);padding:12px 20px;font-size:11px;z-index:110;opacity:0;transition:opacity .25s;pointer-events:none;max-width:86%;text-align:center}
+.info p{font-size:16px;line-height:1.65}
+.info strong{background:var(--giallo);padding:0 3px}
+.firma{font-family:var(--disp);font-size:24px;margin-top:26px;line-height:1.15}
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--nero);color:var(--giallo);padding:13px 20px;
+ font-size:12.5px;font-weight:600;z-index:110;opacity:0;transition:opacity .25s;pointer-events:none;max-width:88%;text-align:center}
 .toast.on{opacity:1}
-a{color:var(--verde)}
+a{color:var(--rosso)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div id="splash"><svg viewBox="0 0 200 200"><path id="sp2"/></svg>
- <div class="n">Dead<b>Art</b></div><div class="s">il cantiere e l'archivio</div></div>
-<div id="grana"></div>
+ <div class="n">Dead<i>Art</i></div><div class="s">il cantiere e l'archivio</div></div>
 <div class="wrap">
   <header>
-    <svg class="spir" viewBox="0 0 200 200"><path id="sp" fill="none" stroke="#63734C" stroke-width="1.1"/></svg>
-    <div class="marchio">Dead<b>Art</b></div>
+    <svg class="spir" viewBox="0 0 200 200"><path id="sp" fill="none" stroke="#D22B1E" stroke-width="2"/></svg>
+    <div class="marchio">Dead<i>Art</i></div>
     <div class="sotto">le opere in corso e quelle che non ci sono più</div>
   </header>
   <nav>
@@ -178,11 +186,12 @@ a{color:var(--verde)}
     <button data-t="prog">Cartelle</button>
     <button data-t="dec">Decantazione<span class="dot" id="badge" style="display:none">0</span></button>
     <button data-t="info">Info</button>
+    <button data-t="priv">Privacy</button>
   </nav>
   <div id="view"></div>
 </div>
 <button class="fab" id="fab">+ nuova</button>
-<div class="sheet" id="sheet"><div class="bar"><button id="sClose">Chiudi</button><b id="sTitle"></b><button id="sAct" style="visibility:hidden">Modifica</button></div><div class="in" id="sIn"></div></div>
+<div class="sheet" id="sheet"><div class="bar"><button id="sClose">← Chiudi</button><b id="sTitle"></b><button id="sAct" class="modi" style="visibility:hidden">Modifica</button></div><div class="in" id="sIn"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -196,15 +205,16 @@ const it=d=>d?new Date(d).toLocaleDateString('it-IT',{day:'2-digit',month:'short
 const oggi=()=>new Date().toISOString().slice(0,10);
 const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2400)};
 const slug=s=>(s||'opera').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+const misure=i=>(i.base&&i.altezza)?i.base+'×'+i.altezza+' cm':'';
 
 const DESTINI=['distrutta','coperta','abbandonata','smarrita','cancellata','sparita'];
 const TECNICHE=['olio su tela','acrilico','tecnica mista','china su carta','acquerello','collage','digitale'];
 const SUPPORTI=['tela','tavola','carta','cartone','muro','file'];
 const FASI=['prima seduta','a metà','quasi finita','finita'];
 
-function disegnaSpirale(el,g){let d='';for(let t=0;t<44;t+=.04){const r=.08*Math.exp(.19*t)*g;
+function spirale(el,g){let d='';for(let t=0;t<44;t+=.04){const r=.08*Math.exp(.19*t)*g;
  const x=100+r*Math.cos(t),y=100+r*Math.sin(t);if(r>92)break;d+=(d?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}el.setAttribute('d',d)}
-disegnaSpirale($('#sp'),22); disegnaSpirale($('#sp2'),21);
+spirale($('#sp'),22); spirale($('#sp2'),21);
 
 /* ===== archivio locale ===== */
 const vuotoMedia=()=>({photos:[],audio:null,voce:null,fasi:[]});
@@ -238,7 +248,7 @@ const leggi=f=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result)
 const carica=u=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=u});
 function rid(im,lato,q){const s=Math.min(1,lato/Math.max(im.width,im.height));
  const c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
- const x=c.getContext('2d');x.fillStyle='#FBF9F4';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+ const x=c.getContext('2d');x.fillStyle='#FFFCF5';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
  return c.toDataURL('image/jpeg',q)}
 const peso=u=>Math.round(u.length*3/4);
 async function comprimi(file){
@@ -247,6 +257,10 @@ async function comprimi(file){
   while(peso(out)>MAXBYTE&&q>.42){q-=.08;out=rid(im,lato,q)}
   while(peso(out)>MAXBYTE&&lato>700){lato=Math.round(lato*.82);out=rid(im,lato,.72)}
   return {full:out,thumb:rid(im,420,.62),ratio:+(im.width/im.height).toFixed(3)};
+}
+function scaricaFile(dataUrl,nome){
+  const a=document.createElement('a'); a.href=dataUrl; a.download=nome;
+  document.body.appendChild(a); a.click(); a.remove(); toast('Salvata nei Download: '+nome);
 }
 
 /* ===== viste ===== */
@@ -260,8 +274,8 @@ function render(){
   const b=$('#badge');b.style.display=pend?'inline-block':'none';b.textContent=pend;
   const f=$('#fab');
   f.textContent = tab==='cant' ? '+ opera in corso' : '+ nuova scheda';
-  f.style.display = (tab==='dec'||tab==='info'||tab==='prog')?'none':'block';
-  $('#view').innerHTML={cant:vCant,arch:vArch,prog:vProg,dec:vDec,info:vInfo}[tab]();
+  f.style.display = (tab==='cant'||tab==='arch')?'block':'none';
+  $('#view').innerHTML={cant:vCant,arch:vArch,prog:vProg,dec:vDec,info:vInfo,priv:vPriv}[tab]();
   lega();
 }
 function vCant(){
@@ -273,11 +287,12 @@ function vCant(){
 }
 function cardCant(c){
   const im=c.thumb?`<img src="${c.thumb}" alt="" loading="lazy" style="aspect-ratio:${c.ratio||1}">`:`<div class="noimg">◌</div>`;
+  const m=[misure(c),c.anno].filter(Boolean).join(' · ');
   return `<div class="card" data-id="${c.id}">${im}
    <div class="bollo${c.chiuso?'':' rosso'}">${c.chiuso?'finita':'in corso'}</div>
    <div class="pile">${c.nFasi||0} fasi</div>
-   <div class="bd"><div class="parola" style="font-size:21px">${esc(c.titolo||'senza titolo')}</div>
-   <div class="meta">${c.ultima?'ultima: '+it(c.ultima):'nessuna fase'}</div></div></div>`;
+   <div class="bd"><div class="parola" style="font-size:20px">${esc(c.titolo||'senza titolo')}</div>
+   <div class="meta">${m||'—'}<br>${c.ultima?'ultima fase: '+it(c.ultima):'nessuna fase'}</div></div></div>`;
 }
 function vArch(){
   const l=scarti();
@@ -294,42 +309,60 @@ function carta(i){
   let bollo=''; if(!i.parola&&!i.dimenticata) bollo=`<div class="bollo${pronta?' rosso':''}">${pronta?'ti aspetta':'decanta '+gg+'g'}</div>`;
   const t=i.parola?`<div class="parola">${esc(i.parola)}</div>`
    :i.dimenticata?`<div class="parola vuota">dimenticata</div>`
-   :`<div class="parola" style="font-size:19px;color:var(--seppia)">${esc(i.titolo||'senza titolo')}</div>`;
+   :`<div class="parola" style="font-size:19px">${esc(i.titolo||'senza titolo')}</div>`;
   const im=i.thumb?`<img src="${i.thumb}" alt="" loading="lazy" style="aspect-ratio:${i.ratio||1}">`:`<div class="noimg">◌</div>`;
+  const m=[i.destino,misure(i),i.anno].filter(Boolean).join(' · ');
   return `<div class="card" data-id="${i.id}">${im}${bollo}${i.nFoto>1?`<div class="pile">${i.nFoto} img</div>`:''}
-   <div class="bd">${t}<div class="meta">${esc(i.destino||'')}${i.anno?' · '+i.anno:''}</div></div></div>`;
+   <div class="bd">${t}<div class="meta">${esc(m)}</div></div></div>`;
 }
 function vProg(){
   const m={};items.forEach(i=>{const k=i.progetto||'Senza cartella';(m[k]=m[k]||[]).push(i)});
   const ks=Object.keys(m).sort();
   if(!ks.length)return `<div class="vuoto"><p>Nessuna cartella.</p><span>Una cartella nasce scrivendone il nome dentro una scheda.</span></div>`;
-  return `<h2>Cartelle</h2><div class="seppia" style="font-size:12px">Cantiere e archivio insieme, progetto per progetto.</div>`
+  return `<h2>Cartelle</h2><p class="grigio" style="font-size:14px">Cantiere e archivio insieme, progetto per progetto.</p>`
    +ks.map(k=>`<div class="cart" data-p="${esc(k)}"><b>${esc(k)}</b><span>${m[k].length} schede</span></div>`).join('');
 }
 function vDec(){
   const q=scarti().filter(i=>!i.parola&&!i.dimenticata&&now()>=i.createdAt+ATTESA);
   const a=scarti().filter(i=>!i.parola&&!i.dimenticata&&now()<i.createdAt+ATTESA);
-  if(!q.length)return `<div class="vuoto"><p>Niente da dire, per ora.</p><span>${a.length?a.length+(a.length==1?' scheda sta decantando.':' schede stanno decantando.'):'Nessuna scheda in attesa.'}</span></div>`;
+  const spiega=`<div class="occhiello">Cos'è la decantazione</div>
+   <p style="margin-top:12px;font-size:15px">Quando archivi un'opera l'app non ti chiede subito perché l'hai scartata: nel momento in cui la butti sei ancora dentro la rabbia o la fretta, e quello che diresti sarebbe una scusa. Passano sette giorni. Poi l'app ti fa una domanda sola — <strong style="background:#F5B301;padding:0 3px">cosa è rimasto?</strong> — e tu rispondi con una parola e cinque secondi di voce, prima di rivedere l'immagine. Quella parola diventa il nome della scheda. Se non rispondi entro il giorno dopo, resta scritto <em>dimenticata</em>: anche non ricordare è un'informazione su di te.</p>`;
+  if(!q.length)return `<div class="vuoto"><p>Niente da dire, per ora.</p><span>${a.length?a.length+(a.length==1?' scheda sta decantando.':' schede stanno decantando.'):'Nessuna scheda in attesa.'}</span></div>`+spiega;
   const i=q[0];
   return `<div class="dec" data-id="${i.id}"><p class="q">Cosa è rimasto?</p>
    <p class="sub">Una parola sola, quella che ti è restata addosso dopo sette giorni. Hai tempo fino a domani: dopo, la scheda resta senza.</p>
    <input type="text" id="pw" maxlength="24" placeholder="una parola" autocomplete="off" autocapitalize="none">
    <div class="reg"><button id="mic">cinque secondi di voce</button><div class="prog"><i id="pbar"></i></div><div id="vplay"></div></div>
-   <button class="btn" id="sigilla">sigilla</button></div>
-   ${q.length>1?`<div class="nota" style="text-align:center">Altre ${q.length-1} in coda.</div>`:''}`;
+   <button class="btn rossa" id="sigilla">sigilla</button></div>
+   ${q.length>1?`<p class="nota" style="text-align:center">Altre ${q.length-1} in coda.</p>`:''}`+spiega;
 }
 function vInfo(){return `<div class="info">
- <h2>DeadArt</h2>
- <p><b>Il cantiere</b> tiene le opere mentre nascono. Apri una scheda quando cominci e fotografi il lavoro ogni volta che cambia: ogni scatto diventa una fase, con la sua data, il suo nome e la sua nota. Alla fine hai la storia del quadro, non solo il quadro.</p>
- <p><b>L'archivio</b> tiene quelle che non ce l'hanno fatta: le tele distrutte, le prove, le fasi coperte da altre fasi, i disegni buttati, i titoli respinti. Un'opera del cantiere che muore passa di là con tutte le sue fasi dietro.</p>
- <p>Ogni scheda dell'archivio nasce muta. Per sette giorni non puoi dire perché l'hai scartata, perché nel momento in cui la scarti non lo sai. Al settimo giorno l'app chiede una cosa sola: <em>cosa è rimasto?</em> Rispondi con una parola e con cinque secondi di voce. Quella parola diventa il nome con cui la scheda vive nell'archivio. Se non rispondi entro un giorno resta scritto <em>dimenticata</em>, ed è un dato anche quello.</p>
- <p>Tutto resta sul tuo telefono. Nessun account, nessun server, nessun cookie, nessuna pubblicità. <a href="privacy.html">Come sono trattati i dati</a>.</p>
- <div class="firma">Maurizio D'Andrea</div>
- <p class="seppia" style="font-size:12px;margin-top:6px">App libera. Distribuita senza manutenzione né assistenza. 2026</p>
+ <h2>A cosa serve DeadArt</h2>
+ <p><strong>Il cantiere</strong> tiene le opere mentre nascono. Apri una scheda quando cominci e fotografi il lavoro ogni volta che cambia: ogni scatto diventa una fase, con la sua data, il suo nome e la sua nota. Alla fine hai la storia del quadro, non solo il quadro — e puoi scaricare ogni fase come immagine da mostrare, stampare o pubblicare.</p>
+ <p><strong>L'archivio</strong> tiene quelle che non ce l'hanno fatta: le tele distrutte, le prove, le fasi coperte da altre fasi, i disegni buttati, i titoli respinti. Un'opera del cantiere che muore passa di là con tutte le sue fasi dietro.</p>
+ <p><strong>La decantazione</strong> è la regola che tiene insieme le due cose. Ogni scheda dell'archivio nasce muta: per sette giorni non puoi dire perché l'hai scartata. Al settimo giorno l'app chiede <em>cosa è rimasto?</em> e tu rispondi con una parola e cinque secondi di voce. Quella parola diventa il nome della scheda, e l'archivio si legge come un elenco di parole.</p>
+ <p>Tutto resta sul telefono: nessun account, nessun server, nessun cookie, nessuna pubblicità.</p>
+ <div class="firma">Maurizio D'Andrea<br><span style="font-family:var(--mono);font-size:13px;font-weight:400">artista internazionale</span></div>
+ <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
  <div class="occhiello">Copia di sicurezza</div>
- <p class="seppia" style="font-size:12.5px">Il file resta sul telefono: se cambi dispositivo o disinstalli, sparisce. Esporta ogni tanto.</p></div>
+ <p style="font-size:14.5px;margin-top:12px">I dati stanno solo qui: se cambi telefono o disinstalli l'app, spariscono. Esporta ogni tanto.</p></div>
  <button class="btn ghost" id="exp">esporta tutto (.json)</button>
- <button class="btn rosso" id="wipe">cancella tutto</button>`;
+ <button class="btn rossa" id="wipe">cancella tutto</button>`;
+}
+function vPriv(){return `<div class="info">
+ <h2>Privacy</h2>
+ <p><strong>DeadArt non raccoglie alcun dato.</strong> Non ci sono account, non ci sono server, non ci sono cookie, non c'è pubblicità, non c'è nessuna forma di tracciamento o statistica.</p>
+ <div class="occhiello">Dove finiscono i tuoi dati</div>
+ <p style="margin-top:12px">Schede, fotografie, note e registrazioni vengono salvate soltanto nella memoria del tuo telefono, in un archivio interno all'app. Non esiste una copia altrove: nemmeno l'autore dell'app può vederli.</p>
+ <div class="occhiello">Autorizzazioni</div>
+ <p style="margin-top:12px"><strong>Fotocamera</strong> per scattare le immagini delle opere. <strong>Microfono</strong> per le note vocali e i cinque secondi della decantazione. <strong>File</strong> per scegliere immagini dalla galleria e per salvare foto e copie di sicurezza nei Download. Tutte facoltative: se le rifiuti, l'app funziona lo stesso, con meno funzioni.</p>
+ <div class="occhiello">Rete</div>
+ <p style="margin-top:12px">L'app funziona senza connessione. L'unica richiesta esterna possibile è il caricamento dei caratteri tipografici alla prima apertura; senza rete usa quelli di sistema.</p>
+ <div class="occhiello">Cancellazione</div>
+ <p style="margin-top:12px">Puoi cancellare ogni scheda dal suo dettaglio, o svuotare tutto dalla schermata Info. Disinstallando l'app, i dati spariscono con lei. Non resta niente altrove, perché non c'è nessun altrove.</p>
+ <div class="occhiello">Titolare</div>
+ <p style="margin-top:12px">DeadArt è un'app libera realizzata da <strong>Maurizio D'Andrea</strong>, artista internazionale, e distribuita senza assistenza né manutenzione.</p>
+ <p class="grigio" style="font-size:13.5px">Versione completa: <a href="privacy.html">informativa estesa</a> · agosto 2026</p></div>`;
 }
 
 /* ===== moduli ===== */
@@ -345,7 +378,7 @@ const formati=()=>`<div class="chips" style="margin-top:9px">${['30×40','50×70
 
 function moduloCantiere(i){ i=i||{};
   return `<label>Immagine di apertura</label><div class="rullino" id="rl"></div>
-  <div class="nota">Una foto sola: com'era il primo giorno. Le altre le aggiungi come fasi, mano a mano.</div>
+  <p class="nota">Una foto sola: com'era il primo giorno. Le altre le aggiungi come fasi, mano a mano.</p>
   <input type="file" id="fCam" accept="image/*" capture="environment" hidden><input type="file" id="fGal" accept="image/*" hidden>
   <label>Titolo</label><input id="titolo" value="${esc(i.titolo)}" placeholder="anche provvisorio">
   <div class="due"><div><label>Iniziata il</label><input type="date" id="dInizio" value="${i.dataInizio||oggi()}"></div>
@@ -362,7 +395,7 @@ function moduloScarto(i){ i=i||{};
   const altri=items.filter(x=>x.id!==draft.id).map(x=>`<option value="${x.id}" ${i.copertaDa===x.id?'selected':''}>${esc(x.parola||x.titolo||'senza titolo')}</option>`).join('');
   const sel=(arr,v)=>arr.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
   return `<label>Immagini</label><div class="rullino" id="rl"></div>
-  <div class="nota">Le fasi, i dettagli, il retro. Ogni foto viene rimpicciolita sotto 1 MB.</div>
+  <p class="nota">Le fasi, i dettagli, il retro. Ogni foto viene rimpicciolita sotto 1 MB.</p>
   <input type="file" id="fCam" accept="image/*" capture="environment" hidden><input type="file" id="fGal" accept="image/*" multiple hidden>
   <label>Titolo</label><input id="titolo" value="${esc(i.titolo)}" placeholder="anche provvisorio">
   <div class="due"><div><label>Anno</label><input type="number" id="anno" value="${i.anno||new Date().getFullYear()}"></div>
@@ -374,7 +407,7 @@ function moduloScarto(i){ i=i||{};
   <label>Che fine ha fatto</label><div class="chips">${chipSet(DESTINI,'destino')}</div>
   <div class="due"><div><label>Scartata il</label><input type="date" id="dScarto" value="${i.dataScarto||oggi()}"></div>
   <div><label>Iniziata il</label><input type="date" id="dInizio" value="${i.dataInizio||''}"></div></div>
-  <div class="nota">Con le due date l'app calcola quanti giorni è sopravvissuta.</div>
+  <p class="nota">Con le due date l'app calcola quanti giorni è sopravvissuta.</p>
   <label>Coperta da</label><select id="copertaDa"><option value="">— nessuna —</option>${altri}</select>
   <label>Dov'era, dov'è ora</label><input id="ubicaz" value="${esc(i.ubicaz)}" placeholder="studio, cantina, sotto un'altra tela…">
   <label>Titoli scartati</label><input id="titoliScartati" value="${esc(i.titoliScartati)}" placeholder="separati da virgola">
@@ -382,7 +415,7 @@ function moduloScarto(i){ i=i||{};
   <label>Note</label><textarea id="note" placeholder="cosa è successo">${esc(i.note)}</textarea>
   <label>Nota vocale</label><div class="reg"><button id="mic2">${draft.audio?'registrata · rifai':'registra, fino a 60 secondi'}</button><div class="prog"><i id="pbar"></i></div><div id="vp2">${draft.audio?`<audio controls src="${draft.audio}"></audio>`:''}</div></div>
   <button class="btn" id="salva">${editId?'salva le modifiche':'archivia la scheda'}</button>
-  ${editId?'':'<div class="nota" style="text-align:center">Da adesso decanta sette giorni.</div>'}`;
+  ${editId?'':'<p class="nota" style="text-align:center">Da adesso decanta sette giorni.</p>'}`;
 }
 function rullino(multi){
   const dis=()=>{ $('#rl').innerHTML=draft.photos.map((p,n)=>`<div class="t" style="background-image:url(${p})"><button data-n="${n}">×</button></div>`).join('')
@@ -410,9 +443,12 @@ const val=id=>{const e=$('#'+id);return e?(e.value||'').trim():''};
 async function salvaCantiere(){
   const d={ tipo:'cantiere', titolo:val('titolo'), anno:val('anno'), base:val('base'), altezza:val('alt'),
     tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto, dataInizio:val('dInizio'),
-    progetto:val('progetto'), note:val('note'), thumb:draft.thumb, ratio:draft.ratio };
+    progetto:val('progetto'), note:val('note') };
+  if(draft.thumb){d.thumb=draft.thumb;d.ratio=draft.ratio}
   if(editId){ const i=items.find(x=>x.id===editId); Object.assign(i,d); await Store.salva(i);
-    const m=await Store.media(editId); if(draft.photos[0]&&!(m.fasi&&m.fasi.length)){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:'',foto:draft.photos[0]}]; i.nFasi=1;i.ultima=now(); await Store.setMedia(editId,m); await Store.salva(i);} }
+    const m=await Store.media(editId);
+    if(draft.photos[0]&&!(m.fasi&&m.fasi.length)){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:'',foto:draft.photos[0]}];
+      i.nFasi=1; i.ultima=now(); await Store.setMedia(editId,m); await Store.salva(i); } }
   else { const o=Object.assign({id:draft.id,createdAt:now(),chiuso:false,nFasi:0,ultima:null},d); items.push(o);
     const m=vuotoMedia(); if(draft.photos[0]){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:val('note'),foto:draft.photos[0]}]; o.nFasi=1; o.ultima=now(); }
     await Store.salva(o); await Store.setMedia(o.id,m); }
@@ -434,37 +470,49 @@ async function salvaScarto(){
 
 /* ===== dettaglio cantiere ===== */
 async function apriCantiere(id){
-  const c=items.find(x=>x.id===id); const m=await Store.media(id);
+  const c=items.find(x=>x.id===id); if(!c)return;
+  const m=await Store.media(id);
   const fasi=(m.fasi||[]).slice().sort((a,b)=>a.ts-b.ts);
   const gg=c.dataInizio?Math.round((now()-new Date(c.dataInizio))/D):null;
+  const r=(k,v)=>v?`<div class="r"><dt>${k}</dt><dd>${esc(v)}</dd></div>`:'';
   apriSheet('Opera in corso',`
-   <div class="dparola" style="font-size:38px">${esc(c.titolo||'senza titolo')}</div>
-   <div class="seppia" style="font-size:9.5px;letter-spacing:.13em;text-transform:uppercase">
-     ${c.chiuso?'finita':'in corso'}${gg!=null?' · aperta da '+gg+' giorni':''} · ${fasi.length} fasi</div>
-   ${c.note?`<p style="margin-top:14px;font-size:14.5px">${esc(c.note)}</p>`:''}
+   <div class="dparola">${esc(c.titolo||'senza titolo')}</div>
+   <div class="riga">${c.chiuso?'finita':'in corso'} · ${fasi.length} fasi${gg!=null?' · aperta da '+gg+' giorni':''}</div>
+   <div class="dl">
+     ${r('Anno',c.anno)}${r('Dimensioni',misure(c))}${r('Tecnica',c.tecnica)}${r('Supporto',c.supporto)}
+     ${r('Iniziata il',it(c.dataInizio))}${r('Cartella',c.progetto)}${r('Intenzione',c.note)}</div>
    <div class="avanz"><i style="width:${Math.min(100,fasi.length*12)}%"></i></div>
-   <button class="btn verde" id="addFase">+ aggiungi una fase</button>
+   <button class="btn giallo" id="addFase">+ aggiungi una fase</button>
    <input type="file" id="fFase" accept="image/*" capture="environment" hidden>
    <div class="occhiello">Le fasi</div>
-   <div style="margin-top:14px">${fasi.length?fasi.map((f,n)=>faseHTML(c,f,n)).join(''):'<div class="nota">Ancora nessuna fase. Scatta la prima.</div>'}</div>
-   <div class="dl">
-     ${c.tecnica?`<div class="r"><dt>Tecnica</dt><dd>${esc(c.tecnica)}</dd></div>`:''}
-     ${(c.base&&c.altezza)?`<div class="r"><dt>Dimensioni</dt><dd>${esc(c.base)}×${esc(c.altezza)} cm</dd></div>`:''}
-     ${c.supporto?`<div class="r"><dt>Supporto</dt><dd>${esc(c.supporto)}</dd></div>`:''}
-     ${c.dataInizio?`<div class="r"><dt>Iniziata il</dt><dd>${it(c.dataInizio)}</dd></div>`:''}
-     ${c.progetto?`<div class="r"><dt>Cartella</dt><dd>${esc(c.progetto)}</dd></div>`:''}</div>
+   <div style="margin-top:14px">${fasi.length?fasi.map((f,n)=>faseHTML(c,f,n)).join(''):'<p class="nota">Ancora nessuna fase. Scatta la prima.</p>'}</div>
    <button class="btn ghost" id="chiudi">${c.chiuso?'riapri il cantiere':'segna come finita'}</button>
-   <button class="btn rosso" id="muore">è morta: mandala nell'archivio</button>
-   <button class="btn rosso" id="del">cancella</button>`, ()=>modificaCantiere(id));
+   <button class="btn rossa" id="muore">è morta: mandala nell'archivio</button>
+   <button class="btn ghost" id="del" style="color:#D22B1E">cancella l'opera</button>`, ()=>modificaCantiere(id));
 
   $('#addFase').onclick=()=>$('#fFase').click();
   $('#fFase').onchange=async e=>{ if(!e.target.files[0])return; toast('Sto rimpicciolendo…');
-    const r=await comprimi(e.target.files[0]);
+    const r2=await comprimi(e.target.files[0]);
     const nome=prompt('Come si chiama questa fase? (fondo, seconda mano, ho coperto tutto…)','')||'';
     const nota=prompt('Due parole su cosa è cambiato:','')||'';
-    m.fasi=m.fasi||[]; m.fasi.push({id:'f'+now(),ts:now(),nome,nota,foto:r.full});
-    await Store.setMedia(id,m); c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r.thumb;c.ratio=r.ratio}
+    m.fasi=m.fasi||[]; m.fasi.push({id:'f'+now(),ts:now(),nome,nota,foto:r2.full});
+    await Store.setMedia(id,m); c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
     await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); };
+
+  $('#sIn').querySelectorAll('[data-scarica]').forEach(b=>b.onclick=()=>{
+    const f=fasi[+b.dataset.scarica]; scaricaFile(f.foto, slug(c.titolo)+'-fase-'+String(+b.dataset.scarica+1).padStart(2,'0')+'.jpg'); });
+  $('#sIn').querySelectorAll('[data-modfase]').forEach(b=>b.onclick=async()=>{
+    const n=+b.dataset.modfase, f=fasi[n];
+    const nome=prompt('Nome della fase:',f.nome||''); if(nome===null)return;
+    const nota=prompt('Nota:',f.nota||''); if(nota===null)return;
+    const vera=m.fasi.find(x=>x.id===f.id); vera.nome=nome; vera.nota=nota;
+    await Store.setMedia(id,m); apriCantiere(id); toast('Fase modificata.'); });
+  $('#sIn').querySelectorAll('[data-delfase]').forEach(b=>b.onclick=async()=>{
+    const f=fasi[+b.dataset.delfase]; if(!confirm('Cancellare questa fase?'))return;
+    m.fasi=m.fasi.filter(x=>x.id!==f.id); await Store.setMedia(id,m);
+    c.nFasi=m.fasi.length; c.ultima=m.fasi.length?m.fasi[m.fasi.length-1].ts:null; await Store.salva(c);
+    apriCantiere(id); toast('Fase cancellata.'); });
+
   $('#chiudi').onclick=async()=>{ c.chiuso=!c.chiuso; await Store.salva(c); chiudiSheet(); render(); toast(c.chiuso?'Segnata come finita.':'Riaperta.'); };
   $('#muore').onclick=async()=>{ if(!confirm('Mandare questa opera nell\'archivio delle opere che non ci sono più? Le fasi la seguono.'))return;
     c.tipo='scarto'; c.parola=null; c.dimenticata=false; c.createdAt=now(); c.destino='abbandonata'; c.dataScarto=oggi();
@@ -474,12 +522,12 @@ async function apriCantiere(id){
   $('#del').onclick=()=>cancella(id);
 }
 function faseHTML(c,f,n){
-  const nome=slug(c.titolo)+'-fase-'+String(n+1).padStart(2,'0')+'.jpg';
-  return `<div class="fase"><div class="qd">${it(f.ts)} · fase ${n+1}</div>
-   <div class="nm">${esc(f.nome||'senza nome')}</div>
+  return `<div class="fase">
+   <div class="cap"><span>fase ${n+1}</span><i>${it(f.ts)}</i></div>
    <img src="${f.foto}" alt="" loading="lazy">
-   <a class="scarica" href="${f.foto}" download="${nome}">scarica ↓</a>
-   ${f.nota?`<div class="tx">${esc(f.nota)}</div>`:''}</div>`;
+   <div class="nm">${esc(f.nome||'senza nome')}</div>
+   ${f.nota?`<div class="tx">${esc(f.nota)}</div>`:'<div style="height:10px"></div>'}
+   <div class="az"><a data-scarica="${n}">scarica ↓</a><button data-modfase="${n}">modifica</button><button class="canc" data-delfase="${n}">elimina</button></div></div>`;
 }
 async function modificaCantiere(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
   draft={id,tipo:'cantiere',photos:(m.fasi&&m.fasi[0])?[m.fasi[0].foto]:[],thumb:i.thumb,ratio:i.ratio,tecnica:i.tecnica||'',supporto:i.supporto||''};
@@ -487,25 +535,26 @@ async function modificaCantiere(id){ const i=items.find(x=>x.id===id); const m=a
 
 /* ===== dettaglio scarto ===== */
 async function apriScarto(id){
-  const i=items.find(x=>x.id===id); const m=await Store.media(id);
+  const i=items.find(x=>x.id===id); if(!i)return;
+  const m=await Store.media(id);
   const cop=i.copertaDa?items.find(x=>x.id===i.copertaDa):null;
   const r=(k,v)=>v?`<div class="r"><dt>${k}</dt><dd>${esc(v)}</dd></div>`:'';
   const gg=Math.max(0,Math.ceil((i.createdAt+ATTESA-now())/D));
-  const nome=n=>slug(i.parola||i.titolo)+'-'+String(n+1).padStart(2,'0')+'.jpg';
   apriSheet('Scheda',`
-   ${(m.photos||[]).map((p,n)=>`<div class="foto"><img class="hero" src="${p}" alt=""><a class="scarica" href="${p}" download="${nome(n)}">scarica ↓</a></div>`).join('')
+   ${(m.photos||[]).map((p,n)=>`<div class="foto"><img class="hero" src="${p}" alt=""><br><a class="scarica" data-scarica="${n}">scarica ↓</a></div>`).join('')
      ||'<div class="vuoto"><p>Nessuna immagine.</p><span>Puoi aggiungerla dalla modifica.</span></div>'}
    <div class="dparola ${i.parola?'':'vuota'}">${esc(i.parola||(i.dimenticata?'dimenticata':(i.titolo||'senza titolo')))}</div>
-   <div class="seppia" style="font-size:9.5px;letter-spacing:.13em;text-transform:uppercase">
-     ${i.parola?esc(i.titolo||'senza titolo')+' · ':''}${i.anno||''}${(!i.parola&&!i.dimenticata)?' · decanta ancora '+gg+' giorni':''}</div>
-   <div class="dl">${r('Che fine ha fatto',i.destino)}${r('Fase',i.fase)}
-     ${r('Dimensioni',(i.base&&i.altezza)?i.base+'×'+i.altezza+' cm':'')}${r('Tecnica',i.tecnica)}${r('Supporto',i.supporto)}
+   <div class="riga">${i.parola?esc(i.titolo||'senza titolo'):'in decantazione'}${(!i.parola&&!i.dimenticata)?' · ancora '+gg+' giorni':''}</div>
+   <div class="dl">${r('Anno',i.anno)}${r('Dimensioni',misure(i))}${r('Che fine ha fatto',i.destino)}${r('Fase',i.fase)}
+     ${r('Tecnica',i.tecnica)}${r('Supporto',i.supporto)}
      ${r('Scartata il',it(i.dataScarto))}${r('Sopravvissuta',i.vita!=null?i.vita+' giorni':'')}
      ${r('Ubicazione',i.ubicaz)}${r('Coperta da',cop?(cop.parola||cop.titolo||'senza titolo'):'')}
      ${r('Titoli scartati',i.titoliScartati)}${r('Cartella',i.progetto)}${r('Note',i.note)}${r('Archiviata il',it(i.createdAt))}</div>
    ${m.voce?`<label>I cinque secondi</label><audio controls src="${m.voce}"></audio>`:''}
    ${m.audio?`<label>Nota vocale</label><audio controls src="${m.audio}"></audio>`:''}
-   <button class="btn rosso" id="del">cancella questa scheda</button>`, ()=>modificaScarto(id));
+   <button class="btn rossa" id="del">cancella questa scheda</button>`, ()=>modificaScarto(id));
+  $('#sIn').querySelectorAll('[data-scarica]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.scarica; scaricaFile(m.photos[n], slug(i.parola||i.titolo)+'-'+String(n+1).padStart(2,'0')+'.jpg'); });
   $('#del').onclick=()=>cancella(id);
 }
 async function modificaScarto(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
@@ -538,7 +587,7 @@ function lega(){
   document.querySelectorAll('.card').forEach(c=>c.onclick=()=>apri(c.dataset.id));
   document.querySelectorAll('.cart').forEach(p=>p.onclick=()=>{
     const k=p.dataset.p, l=items.filter(i=>(i.progetto||'Senza cartella')===k).sort((a,b)=>b.createdAt-a.createdAt);
-    apriSheet('Cartella',`<h2 style="margin-top:2px">${esc(k)}</h2><div class="seppia" style="font-size:12px">${l.length} schede</div>
+    apriSheet('Cartella',`<h2 style="margin-top:2px">${esc(k)}</h2><p class="grigio" style="font-size:14px">${l.length} schede</p>
       <div class="grid">${l.map(i=>i.tipo==='cantiere'?cardCant(i):carta(i)).join('')}</div>`);
     $('#sIn').querySelectorAll('.card').forEach(c=>c.onclick=()=>apri(c.dataset.id)); });
   const dec=document.querySelector('.dec');
@@ -560,7 +609,7 @@ $('#fab').onclick=nuova; $('#sClose').onclick=chiudiSheet;
 addEventListener('keydown',e=>{if(e.key==='Escape')chiudiSheet()});
 
 (async()=>{ await Store.init(); items=await Store.tutti(); items.forEach(i=>{if(!i.tipo)i.tipo='scarto'}); await scaduti(); render();
-  setTimeout(()=>{const s=$('#splash');if(s){s.classList.add('via');setTimeout(()=>s.remove(),700)}},1900);
+  setTimeout(()=>{const s=$('#splash');if(s){s.classList.add('via');setTimeout(()=>s.remove(),620)}},1800);
   if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{}); })();
 </script>
 </body>
