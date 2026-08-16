@@ -43,10 +43,13 @@ header .spir{position:absolute;right:-56px;top:-46px;width:190px;height:190px;op
 .marchio{font-family:var(--disp);font-size:clamp(36px,12vw,52px);line-height:.92;letter-spacing:-.025em;color:var(--carta);position:relative}
 .marchio i{font-style:normal;color:var(--giallo)}
 .sotto{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--giallo);margin-top:10px;position:relative}
-nav{display:flex;gap:0;margin:0 -18px 0;background:var(--nero);overflow-x:auto;scrollbar-width:none;border-top:1px solid #262626}
-nav::-webkit-scrollbar{display:none}
-nav button{background:none;border:0;padding:13px 15px;font-family:var(--mono);font-weight:600;font-size:11px;letter-spacing:.1em;
- text-transform:uppercase;color:#B8B2A6;cursor:pointer;white-space:nowrap}
+nav{display:grid;grid-template-columns:repeat(3,1fr);margin:0 -18px 0;background:var(--nero);border-top:1px solid #262626}
+@media(min-width:600px){nav{grid-template-columns:repeat(6,1fr)}}
+nav button{background:none;border:0;border-bottom:1px solid #262626;border-right:1px solid #262626;padding:12px 3px;
+ font-family:var(--mono);font-weight:600;font-size:10.5px;letter-spacing:.05em;
+ text-transform:uppercase;color:#B8B2A6;cursor:pointer;white-space:nowrap;text-align:center}
+nav button:nth-child(3n){border-right:0}
+@media(min-width:600px){nav button{border-bottom:0}nav button:nth-child(3n){border-right:1px solid #262626}nav button:last-child{border-right:0}}
 nav button.on{color:var(--nero);background:var(--giallo)}
 nav .dot{display:inline-block;min-width:17px;padding:1px 5px;margin-left:6px;background:var(--rosso);color:#fff;font-size:10px;border-radius:9px}
 
@@ -184,7 +187,7 @@ a{color:var(--rosso)}
     <button data-t="cant" class="on">Cantiere</button>
     <button data-t="arch">Archivio</button>
     <button data-t="prog">Cartelle</button>
-    <button data-t="dec">Decantazione<span class="dot" id="badge" style="display:none">0</span></button>
+    <button data-t="dec">Decanta<span class="dot" id="badge" style="display:none">0</span></button>
     <button data-t="info">Info</button>
     <button data-t="priv">Privacy</button>
   </nav>
@@ -211,6 +214,7 @@ const DESTINI=['distrutta','coperta','abbandonata','smarrita','cancellata','spar
 const TECNICHE=['olio su tela','acrilico','tecnica mista','china su carta','acquerello','collage','digitale'];
 const SUPPORTI=['tela','tavola','carta','cartone','muro','file'];
 const FASI=['prima seduta','a metà','quasi finita','finita'];
+const UBICAZIONI=['studio','cantina','soffitta','deposito','discarica','sotto un\'altra tela','da un amico','non esiste più'];
 
 function spirale(el,g){let d='';for(let t=0;t<44;t+=.04){const r=.08*Math.exp(.19*t)*g;
  const x=100+r*Math.cos(t),y=100+r*Math.sin(t);if(r>92)break;d+=(d?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}el.setAttribute('d',d)}
@@ -398,7 +402,8 @@ function vInfo(){return `<div class="info">
  <button class="btn ghost" id="imp">importa una copia</button>
  <input type="file" id="fImp" accept=".json,application/json" hidden>
  <p class="nota">La copia è un file <b>.json</b> con dentro tutte le schede, le foto e le registrazioni. Condividilo su Drive, Telegram o mandalo a te stesso per email: per riprenderlo, tocca «importa» e scegli quel file.</p>
- <button class="btn rossa" id="wipe">cancella tutto</button>`;
+ <button class="btn rossa" id="wipe">cancella tutto</button>
+ <button class="btn ghost" id="esci" style="margin-top:34px">chiudi l'app</button>`;
 }
 function vPriv(){return `<div class="info">
  <h2>Privacy</h2>
@@ -424,6 +429,7 @@ function nuova(){
     editId=null; apriSheet('Nuova scheda',moduloScarto()); legaScarto(); }
 }
 const chipSet=(arr,k)=>arr.map(v=>`<button class="chip ${draft[k]===v?'on':''}" data-k="${k}" data-v="${v}">${v}</button>`).join('');
+const ubicazioni=()=>[...new Set(items.map(x=>x.ubicaz).filter(Boolean))].map(u=>`<option value="${esc(u)}">`).join('');
 const cartelle=()=>[...new Set(items.map(x=>x.progetto).filter(Boolean))].map(p=>`<option value="${esc(p)}">`).join('');
 const formati=()=>`<div class="chips" style="margin-top:9px">${['30×40','50×70','70×100','100×100','120×150'].map(f=>`<button class="chip fmt" data-f="${f}">${f}</button>`).join('')}</div>`;
 
@@ -447,13 +453,13 @@ function moduloCantiere(i){ i=i||{};
 }
 function moduloScarto(i){ i=i||{};
   const altri=items.filter(x=>x.id!==draft.id).map(x=>`<option value="${x.id}" ${i.copertaDa===x.id?'selected':''}>${esc(x.parola||x.titolo||'senza titolo')}</option>`).join('');
-  const sel=(arr,v)=>arr.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
   return `<label>Immagini</label><div class="rullino" id="rl"></div>
   <p class="nota">Le fasi, i dettagli, il retro. Ogni foto viene rimpicciolita sotto 1 MB.</p>
   <input type="file" id="fCam" accept="image/*" capture="environment" hidden><input type="file" id="fGal" accept="image/*" multiple hidden>
   <label>Titolo</label><input id="titolo" value="${esc(i.titolo)}" placeholder="anche provvisorio">
-  <div class="due"><div><label>Anno</label><input type="number" id="anno" value="${i.anno||new Date().getFullYear()}"></div>
-  <div><label>Fase raggiunta</label><select id="fase"><option value=""></option>${sel(FASI,i.fase)}</select></div></div>
+  <label>Anno</label><input type="number" id="anno" value="${i.anno||new Date().getFullYear()}">
+  <label>Fase raggiunta</label><div class="chips">${chipSet(FASI,'fase')}</div>
+  <input id="faseAltro" placeholder="oppure scrivila (appena cominciata, ripresa dopo mesi…)" style="margin-top:10px" value="${FASI.includes(i.fase)?'':esc(i.fase)}">
   <label>Dimensioni in cm</label><div class="due"><input type="number" id="base" value="${esc(i.base)}" placeholder="base"><input type="number" id="alt" value="${esc(i.altezza)}" placeholder="altezza"></div>${formati()}
   <label>Tecnica</label><div class="chips">${chipSet(TECNICHE,'tecnica')}</div>
   <input id="tecAltro" placeholder="oppure scrivila" style="margin-top:10px" value="${TECNICHE.includes(i.tecnica)?'':esc(i.tecnica)}">
@@ -464,7 +470,9 @@ function moduloScarto(i){ i=i||{};
   <div><label>Iniziata il</label><input type="date" id="dInizio" value="${i.dataInizio||''}"></div></div>
   <p class="nota">Con le due date l'app calcola quanti giorni è sopravvissuta.</p>
   <label>Coperta da</label><select id="copertaDa"><option value="">— nessuna —</option>${altri}</select>
-  <label>Dov'era, dov'è ora</label><input id="ubicaz" value="${esc(i.ubicaz)}" placeholder="studio, cantina, sotto un'altra tela…">
+  <label>Dov'era, dov'è ora</label>
+  <input id="ubicaz" list="ubic" value="${esc(i.ubicaz)}" placeholder="scrivi o scegli qui sotto"><datalist id="ubic">${ubicazioni()}</datalist>
+  <div class="chips" style="margin-top:9px">${UBICAZIONI.map(u=>`<button class="chip ubi" data-u="${u}">${u}</button>`).join('')}</div>
   <label>Titoli scartati</label><input id="titoliScartati" value="${esc(i.titoliScartati)}" placeholder="separati da virgola">
   <label>Cartella</label><input id="progetto" list="prjs" value="${esc(i.progetto)}" placeholder="nome del progetto"><datalist id="prjs">${cartelle()}</datalist>
   <label>Note</label><textarea id="note" placeholder="cosa è successo">${esc(i.note)}</textarea>
@@ -488,6 +496,9 @@ function comuni(){
   $('#sIn').querySelectorAll('.chip[data-k]').forEach(c=>c.onclick=()=>{const k=c.dataset.k;draft[k]=draft[k]===c.dataset.v?'':c.dataset.v;
     $('#sIn').querySelectorAll('.chip[data-k="'+k+'"]').forEach(x=>x.classList.toggle('on',x.dataset.v===draft[k]))});
   $('#sIn').querySelectorAll('.fmt').forEach(c=>c.onclick=()=>{const[a,b]=c.dataset.f.split('×');$('#base').value=a;$('#alt').value=b});
+  $('#sIn').querySelectorAll('.ubi').forEach(c=>c.onclick=()=>{const u=$('#ubicaz');
+    u.value = u.value.trim() ? (u.value.trim()===c.dataset.u ? '' : c.dataset.u) : c.dataset.u;
+    $('#sIn').querySelectorAll('.ubi').forEach(x=>x.classList.toggle('on',x.dataset.u===u.value));});
 }
 function legaCantiere(){ rullino(false); comuni();
   $('#mic2').onclick=()=>registra($('#mic2'),60,b=>{draft.audio=b;$('#vp2').innerHTML=`<audio controls src="${b}"></audio>`});
@@ -516,7 +527,7 @@ async function salvaCantiere(){
 async function salvaScarto(){
   const ds=val('dScarto'), di=val('dInizio');
   const d={ tipo:'scarto', titolo:val('titolo'), anno:val('anno'), base:val('base'), altezza:val('alt'),
-    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto||val('supAltro'), destino:draft.destino, fase:$('#fase')?$('#fase').value:'',
+    tecnica:draft.tecnica||val('tecAltro'), supporto:draft.supporto||val('supAltro'), destino:draft.destino, fase:draft.fase||val('faseAltro'),
     copertaDa:$('#copertaDa')?$('#copertaDa').value:'', dataScarto:ds, dataInizio:di, ubicaz:val('ubicaz'), note:val('note'),
     titoliScartati:val('titoliScartati'), progetto:val('progetto'),
     vita:(ds&&di)?Math.max(0,Math.round((new Date(ds)-new Date(di))/D)):null,
@@ -542,22 +553,27 @@ async function apriCantiere(id){
      ${r('Iniziata il',it(c.dataInizio))}${r('Cartella',c.progetto)}${r('Intenzione',c.note)}</div>
    ${m.audio?`<label>Nota vocale dell'opera</label><audio controls src="${m.audio}"></audio>`:''}
    <div class="avanz"><i style="width:${Math.min(100,fasi.length*12)}%"></i></div>
-   <button class="btn giallo" id="addFase">+ aggiungi una fase</button>
-   <input type="file" id="fFase" accept="image/*" capture="environment" hidden>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px">
+     <button class="btn giallo" id="addFaseCam" style="margin:0">+ fase · scatta</button>
+     <button class="btn ghost" id="addFaseGal" style="margin:0">+ fase · galleria</button></div>
+   <input type="file" id="fFaseCam" accept="image/*" capture="environment" hidden>
+   <input type="file" id="fFaseGal" accept="image/*" hidden>
    <div class="occhiello">Le fasi</div>
    <div style="margin-top:14px">${fasi.length?fasi.map((f,n)=>faseHTML(c,f,n)).join(''):'<p class="nota">Ancora nessuna fase. Scatta la prima.</p>'}</div>
    <button class="btn ghost" id="chiudi">${c.chiuso?'riapri il cantiere':'segna come finita'}</button>
    <button class="btn rossa" id="muore">è morta: mandala nell'archivio</button>
    <button class="btn ghost" id="del" style="color:#D22B1E">cancella l'opera</button>`, ()=>modificaCantiere(id));
 
-  $('#addFase').onclick=()=>$('#fFase').click();
-  $('#fFase').onchange=async e=>{ if(!e.target.files[0])return; toast('Sto rimpicciolendo…');
+  $('#addFaseCam').onclick=()=>$('#fFaseCam').click();
+  $('#addFaseGal').onclick=()=>$('#fFaseGal').click();
+  const nuovaFase=async e=>{ if(!e.target.files[0])return; toast('Sto rimpicciolendo…');
     const r2=await comprimi(e.target.files[0]);
     const nome=prompt('Come si chiama questa fase? (fondo, seconda mano, ho coperto tutto…)','')||'';
     const nota=prompt('Due parole su cosa è cambiato:','')||'';
     m.fasi=m.fasi||[]; m.fasi.push({id:'f'+now(),ts:now(),nome,nota,foto:r2.full});
     await Store.setMedia(id,m); c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
     await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); };
+  $('#fFaseCam').onchange=nuovaFase; $('#fFaseGal').onchange=nuovaFase;
 
   $('#sIn').querySelectorAll('[data-cond]').forEach(b=>b.onclick=()=>{
     const n=+b.dataset.cond, f=fasi[n];
@@ -629,7 +645,7 @@ async function apriScarto(id){
   $('#del').onclick=()=>cancella(id);
 }
 async function modificaScarto(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
-  draft={id,tipo:'scarto',photos:(m.photos||[]).slice(),thumb:i.thumb,ratio:i.ratio,audio:m.audio,tecnica:i.tecnica||'',supporto:i.supporto||'',destino:i.destino||'',fase:i.fase||''};
+  draft={id,tipo:'scarto',photos:(m.photos||[]).slice(),thumb:i.thumb,ratio:i.ratio,audio:m.audio,tecnica:i.tecnica||'',supporto:i.supporto||'',destino:i.destino||'',fase:FASI.includes(i.fase)?i.fase:''};
   editId=id; apriSheet('Modifica scheda',moduloScarto(i)); legaScarto(); }
 
 async function cancella(id){ if(!confirm('Cancellare per sempre? Immagini e registrazioni spariscono con lei.'))return;
