@@ -1,4 +1,4 @@
-name: Compila APK DeadArt
+name: Compila DeadArt
 
 on:
   push:
@@ -23,6 +23,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Leggi il numero di versione
+        id: ver
+        run: |
+          NOME=$(cat VERSIONE 2>/dev/null | tr -d ' \n\r' || echo "1.0.0")
+          CODICE=$(( 1000 + ${{ github.run_number }} ))
+          echo "nome=$NOME"     >> $GITHUB_OUTPUT
+          echo "codice=$CODICE" >> $GITHUB_OUTPUT
+          echo "DeadArt $NOME (build $CODICE)"
+
       - name: Raccogli i file dell'app dentro www
         run: |
           mkdir -p www/icons
@@ -36,17 +45,16 @@ jobs:
       - name: Crea il progetto Android
         run: npx cap add android
 
-      - name: Installa il salvataggio nativo e i permessi
+      - name: Installa il salvataggio nativo
         run: |
           mkdir -p android/app/src/main/java/info/dandreart/deadart
           cp native/android/DeadArtFilePlugin.java android/app/src/main/java/info/dandreart/deadart/DeadArtFilePlugin.java
           cp native/android/MainActivity.java android/app/src/main/java/info/dandreart/deadart/MainActivity.java
-          ls -la android/app/src/main/java/info/dandreart/deadart
 
       - name: Sincronizza i file dell'app
         run: npx cap sync android
 
-      - name: Aggiungi i permessi di microfono e fotocamera
+      - name: Permessi di microfono e fotocamera
         run: |
           python3 - << 'PYPERM'
           p='android/app/src/main/AndroidManifest.xml'
@@ -62,57 +70,66 @@ jobs:
           if mancanti:
               s = s.replace('</manifest>', '    ' + '\n    '.join(mancanti) + '\n</manifest>')
               open(p,'w').write(s)
-              print('Aggiunti:', len(mancanti))
-          else:
-              print('Permessi gia presenti')
-          print(s)
+          print('permessi a posto')
           PYPERM
 
-      - name: Guarda se c'e' una chiave di firma tua
+      - name: Ricrea il keystore dalle chiavi segrete
         id: chiave
         env:
           K: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           if [ -n "$K" ]; then
-            echo "$K" | base64 -d > android/app/deadart-release.keystore
-            if [ -s android/app/deadart-release.keystore ]; then
-              echo "mia=si" >> $GITHUB_OUTPUT
-              echo "Chiave personale trovata."
+            echo "$K" | base64 -d > android/app/deadart.keystore
+            if [ -s android/app/deadart.keystore ]; then
+              echo "firma=si" >> $GITHUB_OUTPUT
+              echo "Chiave di firma trovata."
             else
-              echo "mia=no" >> $GITHUB_OUTPUT
-              echo "Il segreto c'e' ma il file e' vuoto: uso la chiave di prova."
+              echo "firma=no" >> $GITHUB_OUTPUT
+              echo "ATTENZIONE: il segreto KEYSTORE_BASE64 e' vuoto o rovinato."
             fi
           else
-            echo "mia=no" >> $GITHUB_OUTPUT
-            echo "Nessun segreto impostato: uso la chiave di prova di Android."
+            echo "firma=no" >> $GITHUB_OUTPUT
+            echo "Nessuna chiave: esce solo un APK di prova, non pubblicabile."
           fi
 
-      - name: Firma con la chiave fissa
-        if: steps.chiave.outputs.mia == 'si'
+      - name: Scrivi versione e firma dentro build.gradle
+        env:
+          FIRMA: ${{ steps.chiave.outputs.firma }}
+          VNOME: ${{ steps.ver.outputs.nome }}
+          VCOD: ${{ steps.ver.outputs.codice }}
         run: |
-          python3 - << 'PYSIGN'
-          import re
+          python3 - << 'PYGRADLE'
+          import os, re
           p='android/app/build.gradle'
           s=open(p).read()
-          sign='''
+
+          # numero di versione
+          s=re.sub(r'versionCode\s+\d+', 'versionCode '+os.environ['VCOD'], s, count=1)
+          s=re.sub(r'versionName\s+"[^"]*"', 'versionName "'+os.environ['VNOME']+'"', s, count=1)
+
+          if os.environ.get('FIRMA')=='si':
+              sign = '''
               signingConfigs {
-                  fissa {
-                      storeFile file('deadart-release.keystore')
+                  rilascio {
+                      storeFile file('deadart.keystore')
                       storePassword System.getenv('DEAD_STORE_PW')
                       keyAlias System.getenv('DEAD_KEY_ALIAS')
                       keyPassword System.getenv('DEAD_KEY_PW')
                   }
               }'''
-          s=re.sub(r'android\s*\{', 'android {'+sign, s, count=1)
-          if re.search(r'buildTypes\s*\{', s):
-              s=re.sub(r'buildTypes\s*\{', 'buildTypes {\n        debug { signingConfig signingConfigs.fissa }', s, count=1)
-          else:
-              s=re.sub(r'(signingConfigs\s*\{[^}]*\}\s*\})', r'\1\n    buildTypes { debug { signingConfig signingConfigs.fissa } }', s, count=1)
+              s = re.sub(r'android\s*\{', 'android {'+sign, s, count=1)
+              # sia release che debug firmati con la stessa chiave
+              s = re.sub(r'buildTypes\s*\{',
+                         'buildTypes {\n        debug { signingConfig signingConfigs.rilascio }',
+                         s, count=1)
+              s = re.sub(r'release\s*\{',
+                         'release {\n            signingConfig signingConfigs.rilascio',
+                         s, count=1)
           open(p,'w').write(s)
-          print('--- build.gradle firmato con la chiave personale ---')
-          PYSIGN
+          print(s[s.find('android'):s.find('android')+900])
+          PYGRADLE
 
-      - name: Compila l'APK
+      - name: Compila APK e pacchetto per il Play Store
         env:
           DEAD_STORE_PW: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
           DEAD_KEY_ALIAS: ${{ secrets.MAIR_KEY_ALIAS }}
@@ -121,9 +138,22 @@ jobs:
           cd android
           chmod +x ./gradlew
           ./gradlew assembleDebug
+          if [ "${{ steps.chiave.outputs.firma }}" = "si" ]; then
+            ./gradlew bundleRelease assembleRelease
+          fi
 
-      - name: Pubblica l'APK scaricabile
+      - name: Rinomina i file con la versione
+        run: |
+          V="${{ steps.ver.outputs.nome }}-${{ steps.ver.outputs.codice }}"
+          mkdir -p consegna
+          cp android/app/build/outputs/apk/debug/app-debug.apk "consegna/DeadArt-prova-$V.apk" 2>/dev/null || true
+          cp android/app/build/outputs/apk/release/app-release.apk "consegna/DeadArt-$V.apk" 2>/dev/null || true
+          cp android/app/build/outputs/bundle/release/app-release.aab "consegna/DeadArt-$V.aab" 2>/dev/null || true
+          ls -la consegna
+
+      - name: Pubblica i file scaricabili
         uses: actions/upload-artifact@v4
         with:
-          name: DeadArt-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: DeadArt-${{ steps.ver.outputs.nome }}-${{ steps.ver.outputs.codice }}
+          path: consegna/*
+          if-no-files-found: warn
