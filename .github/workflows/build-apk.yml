@@ -54,6 +54,55 @@ jobs:
       - name: Sincronizza i file dell'app
         run: npx cap sync android
 
+      - name: Android API 35, richiesta da Google Play
+        run: |
+          python3 - << 'PYSDK'
+          from pathlib import Path
+          p = Path('android/variables.gradle')
+          s = p.read_text()
+          s = s.replace('compileSdkVersion = 34', 'compileSdkVersion = 35')
+          s = s.replace('targetSdkVersion = 34', 'targetSdkVersion = 35')
+          p.write_text(s)
+          print(s)
+          PYSDK
+
+      - name: Tieni visibile la barra di stato su Android 15
+        run: |
+          python3 - << 'PYSTATUS'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          source = Path('android/app/src/main/res/values/styles.xml')
+          destination = Path('android/app/src/main/res/values-v35/styles.xml')
+
+          ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
+          tree = ET.parse(source)
+          root = tree.getroot()
+
+          wanted = {
+              'android:windowOptOutEdgeToEdgeEnforcement': 'true',
+              'android:windowDrawsSystemBarBackgrounds': 'true',
+              'android:statusBarColor': '#0B0B0B',
+              'android:windowLightStatusBar': 'false',
+              'android:navigationBarColor': '#0B0B0B',
+              'android:windowLightNavigationBar': 'false',
+          }
+
+          for style in root.findall('style'):
+              if style.get('name') not in {'AppTheme.NoActionBar', 'AppTheme.NoActionBarLaunch'}:
+                  continue
+              existing = {item.get('name'): item for item in style.findall('item')}
+              for name, value in wanted.items():
+                  item = existing.get(name)
+                  if item is None:
+                      item = ET.SubElement(style, 'item', {'name': name})
+                  item.text = value
+
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          tree.write(destination, encoding='utf-8', xml_declaration=True)
+          print(destination.read_text())
+          PYSTATUS
+
       - name: Permessi di microfono e fotocamera
         run: |
           python3 - << 'PYPERM'
@@ -123,7 +172,7 @@ jobs:
                          'buildTypes {\n        debug { signingConfig signingConfigs.rilascio }',
                          s, count=1)
               s = re.sub(r'release\s*\{',
-                         'release {\n            signingConfig signingConfigs.rilascio',
+                         'release {\n            signingConfig signingConfigs.rilascio\n            minifyEnabled false',
                          s, count=1)
           open(p,'w').write(s)
           print(s[s.find('android'):s.find('android')+900])
