@@ -323,6 +323,133 @@ function mostraSalvataggio(dato,nome,blob){
   d.querySelector('#chiudiSalva').onclick=()=>d.remove();
 }
 
+
+/* ===== PDF: scritto a mano, nessuna libreria, funziona anche senza rete ===== */
+const A4=[595.28,841.89], MARG=42;
+const lat1=s=>{const a=[];for(const ch of String(s==null?'':s)){const c=ch.charCodeAt(0);a.push(c<256?c:63)}return a};
+const pdfTxt=s=>{let o='';for(const c of lat1(s)){const ch=String.fromCharCode(c);
+  o += (ch==='('||ch===')'||ch==='\\') ? '\\'+ch : ch} return o};
+function spezza(testo,max){ const parole=String(testo||'').split(/\s+/); const righe=[]; let r='';
+  for(const p of parole){ if((r+' '+p).trim().length>max){ if(r)righe.push(r); r=p } else r=(r?r+' ':'')+p }
+  if(r)righe.push(r); return righe }
+
+async function creaPDF(pagine,titoloDoc){
+  // il PDF vuole un byte per carattere (WinAnsi), non UTF-8: altrimenti gli accenti saltano
+  const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
+  const pezzi=[]; let lung=0;
+  const scrivi=d=>{ const b=(typeof d==='string')?enc1(d):d; pezzi.push(b); lung+=b.length };
+  const oggetti=[]; // [ {corpo: string|Uint8Array[], } ]
+  const off=[];
+
+  // font: 1 = catalogo, 2 = pagine, 3 = helvetica, 4 = helvetica-bold
+  const idPagine=[]; const corpi=[];
+  const aggiungi=parti=>{ corpi.push(parti); return corpi.length+4 }; // numeri da 5 in su
+
+  for(const p of pagine){
+    let idImg=null, iw=0, ih=0;
+    if(p.foto){
+      try{
+        const im=await carica(p.foto);
+        const bytes=new Uint8Array(await daDataUrl(p.foto).arrayBuffer());
+        iw=im.naturalWidth||im.width; ih=im.naturalHeight||im.height;
+        idImg=aggiungi([`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, '\nendstream']);
+      }catch(e){ idImg=null }
+    }
+    // contenuto
+    let y=A4[1]-MARG, c='';
+    const larg=A4[0]-MARG*2;
+    if(idImg){
+      const maxH=A4[1]*0.46, s=Math.min(larg/iw, maxH/ih), w=iw*s, hh=ih*s;
+      c+=`q ${w.toFixed(2)} 0 0 ${hh.toFixed(2)} ${(MARG+(larg-w)/2).toFixed(2)} ${(y-hh).toFixed(2)} cm /Im0 Do Q\n`;
+      y-=hh+26;
+    }
+    c+=`BT /F2 20 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.titolo)}) Tj ET\n`; y-=22;
+    if(p.sottotitolo){ c+=`BT /F1 10 Tf 0.45 0.42 0.36 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.sottotitolo)}) Tj ET 0 0 0 rg\n`; y-=20 }
+    c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.6 w S\n`; y-=20;
+    for(const r of (p.righe||[])){
+      if(y<MARG+40){ break }
+      c+=`BT /F2 9 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(r[0].toUpperCase())}) Tj ET\n`;
+      const linee=spezza(r[1],62);
+      linee.forEach((l,k)=>{ c+=`BT /F1 11 Tf 1 0 0 1 ${MARG+118} ${y-k*14} Tm (${pdfTxt(l)}) Tj ET\n` });
+      y-=Math.max(16, linee.length*14+4);
+    }
+    if(p.testo){ y-=8; for(const l of spezza(p.testo,74)){ if(y<MARG+20)break;
+      c+=`BT /F1 11 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(l)}) Tj ET\n`; y-=14 } }
+    c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${MARG} ${MARG-18} Tm (${pdfTxt("DeadArt - Maurizio D'Andrea")}) Tj ET\n`;
+    const idCont=aggiungi([`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
+    const risorse=idImg ? `<< /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im0 ${idImg} 0 R >> >>`
+                        : `<< /Font << /F1 3 0 R /F2 4 0 R >> >>`;
+    const idPag=aggiungi([`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4[0]} ${A4[1]}] /Resources ${risorse} /Contents ${idCont} 0 R >>`]);
+    idPagine.push(idPag);
+  }
+
+  const tutti=[
+    ['<< /Type /Catalog /Pages 2 0 R >>'],
+    [`<< /Type /Pages /Kids [${idPagine.map(n=>n+' 0 R').join(' ')}] /Count ${idPagine.length} >>`],
+    ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'],
+    ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'],
+    ...corpi];
+
+  scrivi('%PDF-1.4\n');
+  tutti.forEach((parti,i)=>{ off[i]=lung; scrivi(`${i+1} 0 obj\n`); parti.forEach(scrivi); scrivi('\nendobj\n') });
+  const xref=lung;
+  scrivi(`xref\n0 ${tutti.length+1}\n0000000000 65535 f \n`);
+  off.forEach(o=>scrivi(String(o).padStart(10,'0')+' 00000 n \n'));
+  scrivi(`trailer\n<< /Size ${tutti.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(pezzi,{type:'application/pdf'});
+}
+
+async function pdfDaTab(quale){
+  const lista = quale==='cant' ? cantieri() : scarti();
+  if(!lista.length){ toast('Non c\'è niente da mettere nel PDF.'); return }
+  toast('Sto preparando il PDF…');
+  const pagine=[];
+  for(const i of lista.slice().sort((a,b)=>b.createdAt-a.createdAt)){
+    const m=await Store.media(i.id);
+    const foto = quale==='cant' ? ((m.fasi&&m.fasi.length)?m.fasi[m.fasi.length-1].foto:null) : (m.photos&&m.photos[0]);
+    const righe=[];
+    if(i.anno)righe.push(['anno',i.anno]);
+    if(misure(i))righe.push(['dimensioni',misure(i)]);
+    if(i.tecnica)righe.push(['tecnica',i.tecnica]);
+    if(i.supporto)righe.push(['supporto',i.supporto]);
+    if(quale==='cant'){
+      righe.push(['stato', i.chiuso?'finita':'in corso']);
+      righe.push(['fasi', String(i.nFasi||0)]);
+      const min=(m.fasi||[]).reduce((s,f)=>s+(+f.minuti||0),0); if(min)righe.push(['lavoro',durata(min)]);
+      if(i.dataInizio)righe.push(['iniziata',it(i.dataInizio)]);
+    }else{
+      if(i.destino)righe.push(['che fine ha fatto',i.destino]);
+      if(i.dataScarto)righe.push(['scartata il',it(i.dataScarto)]);
+      if(i.vita!=null)righe.push(['sopravvissuta',i.vita+' giorni']);
+      if(i.ubicaz)righe.push(['ubicazione',i.ubicaz]);
+    }
+    if(i.progetto)righe.push(['cartella',i.progetto]);
+    pagine.push({ foto,
+      titolo: quale==='cant' ? (i.titolo||'senza titolo') : (i.parola||i.titolo||'senza titolo'),
+      sottotitolo: quale==='cant' ? '' : (i.parola? (i.titolo||'senza titolo') : (i.dimenticata?'dimenticata':'in decantazione')),
+      righe, testo: i.note||'' });
+  }
+  const nome = (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf';
+  await condividi(await creaPDF(pagine), nome, 'DeadArt');
+}
+
+async function pdfOpera(id){
+  const c=items.find(x=>x.id===id); const m=await Store.media(id);
+  const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
+  toast('Sto preparando il PDF…');
+  const min=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
+  const pagine=[{ foto: fasi.length?fasi[fasi.length-1].foto:null, titolo:c.titolo||'senza titolo',
+    sottotitolo:(c.chiuso?'finita':'in corso')+' · '+fasi.length+' fasi'+(min?' · '+durata(min)+' di lavoro':''),
+    righe:[ ...(c.anno?[['anno',c.anno]]:[]), ...(misure(c)?[['dimensioni',misure(c)]]:[]),
+      ...(c.tecnica?[['tecnica',c.tecnica]]:[]), ...(c.supporto?[['supporto',c.supporto]]:[]),
+      ...(c.dataInizio?[['iniziata il',it(c.dataInizio)]]:[]), ...(c.progetto?[['cartella',c.progetto]]:[]) ],
+    testo:c.note||'' }];
+  fasi.forEach((f,n)=>{ pagine.push({ foto:f.foto, titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
+    sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
+    righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' }) });
+  await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera');
+}
+
 /* ===== viste ===== */
 async function scaduti(){for(const i of items){if(i.tipo==='scarto'&&!i.parola&&!i.dimenticata&&now()>i.createdAt+FINESTRA){i.dimenticata=true;await Store.salva(i)}}}
 const scarti=()=>items.filter(i=>i.tipo==='scarto');
@@ -343,7 +470,8 @@ function vCant(){
   const ch=cantieri().filter(i=>i.chiuso);
   if(!l.length&&!ch.length)return `<div class="vuoto"><p>Il cantiere è vuoto.</p><span>Apri un'opera in corso e fotografala ogni volta che cambia. Le fasi restano in fila, una sotto l'altra.</span></div>`;
   return (l.length?`<div class="grid">${l.map(cardCant).join('')}</div>`:`<div class="vuoto"><p>Nessuna opera aperta.</p><span>Quelle finite stanno qui sotto.</span></div>`)
-   +(ch.length?`<div class="occhiello">Finite</div><div class="grid">${ch.map(cardCant).join('')}</div>`:'');
+   +(ch.length?`<div class="occhiello">Finite</div><div class="grid">${ch.map(cardCant).join('')}</div>`:'')
+   +`<button class="btn giallo" data-pdf="cant">esporta il cantiere in PDF</button>`;
 }
 function cardCant(c){
   const im=c.thumb?`<img src="${c.thumb}" alt="" loading="lazy" style="aspect-ratio:${c.ratio||1}">`:`<div class="noimg">◌</div>`;
@@ -362,7 +490,8 @@ function vArch(){
   const m=g.length?Math.round(g.reduce((a,b)=>a+b,0)/g.length):null;
   return `<div class="stat"><div><b>${l.length}</b><span>schede</span></div><div><b>${p}</b><span>parole</span></div>
    <div><b>${d}</b><span>dimenticate</span></div><div><b>${m!=null?m:'—'}</b><span>giorni di vita</span></div></div>
-   <div class="grid">${l.slice().sort((a,b)=>b.createdAt-a.createdAt).map(carta).join('')}</div>`;
+   <div class="grid">${l.slice().sort((a,b)=>b.createdAt-a.createdAt).map(carta).join('')}</div>
+   <button class="btn giallo" data-pdf="arch">esporta l'archivio in PDF</button>`;
 }
 function carta(i){
   const pronta=now()>=i.createdAt+ATTESA, gg=Math.max(0,Math.ceil((i.createdAt+ATTESA-now())/D));
@@ -570,6 +699,7 @@ async function apriCantiere(id){
    <input type="file" id="fFaseGal" accept="image/*" hidden>
    <div class="occhiello">Le fasi</div>
    <div style="margin-top:14px">${fasi.length?fasi.map((f,n)=>faseHTML(c,f,n)).join(''):'<p class="nota">Ancora nessuna fase. Scatta la prima.</p>'}</div>
+   <button class="btn giallo" id="pdfOp">esporta quest'opera in PDF</button>
    <button class="btn ghost" id="chiudi">${c.chiuso?'riapri il cantiere':'segna come finita'}</button>
    <button class="btn rossa" id="muore">è morta: mandala nell'archivio</button>
    <button class="btn ghost" id="del" style="color:#D22B1E">cancella l'opera</button>`, ()=>modificaCantiere(id));
@@ -581,6 +711,7 @@ async function apriCantiere(id){
     apriSheet('Nuova fase',moduloFase(c,null,r2.full));
     $('#fAnnulla').onclick=()=>apriCantiere(id);
     legaModuloFase(async()=>{
+      const nt=($('#fTitoloOpera').value||'').trim(); if(nt&&nt!==c.titolo){c.titolo=nt}
       m.fasi=m.fasi||[];
       m.fasi.push({id:'f'+now(), ts:now(), data:$('#fData').value||oggi(), nome:$('#fNome').value.trim(),
         minuti:+$('#fMin').value||0, cambiato:$('#fCambiato').value.trim(), note:$('#fNote').value.trim(), foto:r2.full});
@@ -605,6 +736,8 @@ async function apriCantiere(id){
     apriSheet('Modifica fase',moduloFase(c,f,f.foto));
     $('#fAnnulla').onclick=()=>apriCantiere(id);
     legaModuloFase(async()=>{
+      const nt=($('#fTitoloOpera').value||'').trim();
+      if(nt&&nt!==c.titolo){ c.titolo=nt; await Store.salva(c) }
       const vera=m.fasi.find(x=>x.id===f.id);
       vera.nome=$('#fNome').value.trim(); vera.data=$('#fData').value||vera.data;
       vera.minuti=+$('#fMin').value||0; vera.cambiato=$('#fCambiato').value.trim(); vera.note=$('#fNote').value.trim();
@@ -615,6 +748,7 @@ async function apriCantiere(id){
     c.nFasi=m.fasi.length; c.ultima=m.fasi.length?m.fasi[m.fasi.length-1].ts:null; await Store.salva(c);
     apriCantiere(id); toast('Fase cancellata.'); });
 
+  $('#pdfOp').onclick=()=>pdfOpera(id);
   $('#chiudi').onclick=async()=>{ c.chiuso=!c.chiuso; await Store.salva(c); chiudiSheet(); render(); toast(c.chiuso?'Segnata come finita.':'Riaperta.'); };
   $('#muore').onclick=async()=>{ if(!confirm('Mandare questa opera nell\'archivio delle opere che non ci sono più? Le fasi la seguono.'))return;
     c.tipo='scarto'; c.parola=null; c.dimenticata=false; c.createdAt=now(); c.destino='abbandonata'; c.dataScarto=oggi();
@@ -643,8 +777,12 @@ function faseHTML(c,f,n){
 /* modulo della fase: si apre dopo lo scatto, o dalla modifica */
 function moduloFase(c,f,foto){
   const oggiIso=oggi();
-  return `<img class="hero" src="${foto||f.foto}" alt="" style="margin-bottom:6px">
-  <label>Che fase è</label>
+  return `<div class="riga" style="display:block;margin-bottom:10px">opera in corso</div>
+  <label style="margin-top:0">Titolo dell'opera</label>
+  <input id="fTitoloOpera" value="${esc(c.titolo)}" placeholder="titolo dell'opera">
+  <p class="nota">Se lo cambi qui, cambia anche nell'opera.</p>
+  <img class="hero" src="${foto||f.foto}" alt="" style="margin:18px 0 6px">
+  <label>Titolo della fase</label>
   <div class="chips">${['fondo','prima stesura','seconda mano','dettagli','ho coperto tutto','ripresa','ultima mano'].map(v=>`<button class="chip faz" data-v="${v}">${v}</button>`).join('')}</div>
   <input id="fNome" placeholder="oppure scrivilo tu" style="margin-top:10px" value="${esc(f?f.nome:'')}">
   <div class="due"><div><label>Giorno</label><input type="date" id="fData" value="${f&&f.data?f.data:oggiIso}"></div>
@@ -767,16 +905,23 @@ function lega(){
     for(const i of items) out.media[i.id]=await Store.media(i.id);
     const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
     await condividi(blob,'deadart-'+oggi()+'.json','Copia di sicurezza DeadArt'); };
-  const im=$('#imp'); if(im)im.onclick=async()=>{
-    const N=nativo();
-    if(N && typeof N.apri==='function'){
-      try{ const r=await N.apri(); if(!r||r.annullato)return; await importaTesto(r.testo); }
-      catch(e){ toast('Apertura non riuscita'); }
-      return;
-    }
-    $('#fImp').click(); };
+  const im=$('#imp'); if(im)im.onclick=()=>$('#fImp').click();
   const fi=$('#fImp'); if(fi)fi.onchange=async e=>{
-    const f=e.target.files[0]; if(!f)return; e.target.value=''; await importaTesto(await f.text()); };
+    const f=e.target.files[0]; if(!f)return; e.target.value='';
+    toast('Sto leggendo il file…'); await importaTesto(await f.text()); };
+  const wp=$('#wipe'); if(wp)wp.onclick=async()=>{
+    if(!confirm('Cancellare tutto l\'archivio? Non si torna indietro.'))return;
+    for(const i of items){ await Store.togli(i.id); await Store.delMedia(i.id) }
+    items=[]; if(Store.modo==='anteprima') await Store.salva();
+    render(); toast('Archivio vuoto.') };
+  const es=$('#esci'); if(es)es.onclick=async()=>{
+    const N=nativo();
+    if(N && typeof N.chiudi==='function'){ try{ await N.chiudi(); return }catch(e){} }
+    const C=window.Capacitor;
+    if(C&&C.Plugins&&C.Plugins.App&&C.Plugins.App.exitApp){ try{ C.Plugins.App.exitApp(); return }catch(e){} }
+    try{ window.close() }catch(e){}
+    setTimeout(()=>toast('Da qui non posso chiudere: usa il tasto indietro del telefono.'),300); };
+  document.querySelectorAll('[data-pdf]').forEach(b=>b.onclick=()=>pdfDaTab(b.dataset.pdf));
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render();scrollTo({top:0,behavior:'smooth'})});
 $('#fab').onclick=nuova; $('#sClose').onclick=chiudiSheet;
