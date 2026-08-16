@@ -135,7 +135,14 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--nero) 50%),l
 .dl dd{margin:0;font-size:15px}
 audio{width:100%;margin-top:10px}
 
-.fase{border:2px solid var(--nero);background:var(--bianco);margin-bottom:16px}
+.fase{border:2px solid var(--nero);background:var(--bianco);margin-bottom:18px}
+.datona{display:flex;align-items:stretch;border-bottom:2px solid var(--nero)}
+.datona .g{background:var(--rosso);color:#fff;font-family:var(--disp);font-size:30px;line-height:1;padding:10px 12px;text-align:center;min-width:76px}
+.datona .g small{display:block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
+.datona .e{flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 12px;background:var(--giallo)}
+.datona .e b{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.datona .e span{font-size:12px;color:#3A362E}
+.tempone{display:inline-block;background:var(--nero);color:var(--giallo);font-size:11px;font-weight:600;letter-spacing:.08em;padding:4px 9px;margin:11px 12px 0}
 .fase .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--nero);color:var(--carta);padding:8px 11px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .fase .cap i{font-style:normal;color:var(--giallo)}
 .fase img{width:100%;display:block;border-bottom:2px solid var(--nero)}
@@ -208,6 +215,7 @@ const it=d=>d?new Date(d).toLocaleDateString('it-IT',{day:'2-digit',month:'short
 const oggi=()=>new Date().toISOString().slice(0,10);
 const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2400)};
 const slug=s=>(s||'opera').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+const durata=m=>{m=+m||0; if(!m)return ''; const o=Math.floor(m/60), r=m%60; return o?(o+'h'+(r?' '+r+'m':'')):(r+' min')};
 const misure=i=>(i.base&&i.altezza)?i.base+'×'+i.altezza+' cm':'';
 
 const DESTINI=['distrutta','coperta','abbandonata','smarrita','cancellata','sparita'];
@@ -417,7 +425,8 @@ function vPriv(){return `<div class="info">
  <div class="occhiello">Cancellazione</div>
  <p style="margin-top:12px">Puoi cancellare ogni scheda dal suo dettaglio, o svuotare tutto dalla schermata Info. Disinstallando l'app, i dati spariscono con lei. Non resta niente altrove, perché non c'è nessun altrove.</p>
  <div class="occhiello">Titolare</div>
- <p style="margin-top:12px">DeadArt è un'app libera realizzata da <strong>Maurizio D'Andrea</strong>, artista internazionale, e distribuita senza assistenza né manutenzione.</p>
+ <p style="margin-top:12px">DeadArt è un'app libera realizzata da <strong>Maurizio D'Andrea</strong>, artista internazionale, e distribuita senza assistenza né manutenzione.<br>
+ Per qualsiasi domanda: <a href="mailto:dandreart.info@gmail.com">dandreart.info@gmail.com</a></p>
  <p class="grigio" style="font-size:13.5px">Versione completa: <a href="privacy.html">informativa estesa</a> · agosto 2026</p></div>`;
 }
 
@@ -542,12 +551,13 @@ async function salvaScarto(){
 async function apriCantiere(id){
   const c=items.find(x=>x.id===id); if(!c)return;
   const m=await Store.media(id);
-  const fasi=(m.fasi||[]).slice().sort((a,b)=>a.ts-b.ts);
+  const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
+  const minutiTotali=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
   const gg=c.dataInizio?Math.round((now()-new Date(c.dataInizio))/D):null;
   const r=(k,v)=>v?`<div class="r"><dt>${k}</dt><dd>${esc(v)}</dd></div>`:'';
   apriSheet('Opera in corso',`
    <div class="dparola">${esc(c.titolo||'senza titolo')}</div>
-   <div class="riga">${c.chiuso?'finita':'in corso'} · ${fasi.length} fasi${gg!=null?' · aperta da '+gg+' giorni':''}</div>
+   <div class="riga">${c.chiuso?'finita':'in corso'} · ${fasi.length} fasi${gg!=null?' · aperta da '+gg+' giorni':''}${minutiTotali?' · '+durata(minutiTotali)+' di lavoro':''}</div>
    <div class="dl">
      ${r('Anno',c.anno)}${r('Dimensioni',misure(c))}${r('Tecnica',c.tecnica)}${r('Supporto',c.supporto)}
      ${r('Iniziata il',it(c.dataInizio))}${r('Cartella',c.progetto)}${r('Intenzione',c.note)}</div>
@@ -567,12 +577,17 @@ async function apriCantiere(id){
   $('#addFaseCam').onclick=()=>$('#fFaseCam').click();
   $('#addFaseGal').onclick=()=>$('#fFaseGal').click();
   const nuovaFase=async e=>{ if(!e.target.files[0])return; toast('Sto rimpicciolendo…');
-    const r2=await comprimi(e.target.files[0]);
-    const nome=prompt('Come si chiama questa fase? (fondo, seconda mano, ho coperto tutto…)','')||'';
-    const nota=prompt('Due parole su cosa è cambiato:','')||'';
-    m.fasi=m.fasi||[]; m.fasi.push({id:'f'+now(),ts:now(),nome,nota,foto:r2.full});
-    await Store.setMedia(id,m); c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
-    await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); };
+    const r2=await comprimi(e.target.files[0]); e.target.value='';
+    apriSheet('Nuova fase',moduloFase(c,null,r2.full));
+    $('#fAnnulla').onclick=()=>apriCantiere(id);
+    legaModuloFase(async()=>{
+      m.fasi=m.fasi||[];
+      m.fasi.push({id:'f'+now(), ts:now(), data:$('#fData').value||oggi(), nome:$('#fNome').value.trim(),
+        minuti:+$('#fMin').value||0, cambiato:$('#fCambiato').value.trim(), note:$('#fNote').value.trim(), foto:r2.full});
+      await Store.setMedia(id,m);
+      c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
+      await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); });
+  };
   $('#fFaseCam').onchange=nuovaFase; $('#fFaseGal').onchange=nuovaFase;
 
   $('#sIn').querySelectorAll('[data-cond]').forEach(b=>b.onclick=()=>{
@@ -585,12 +600,15 @@ async function apriCantiere(id){
     registraSu(b, 60, 'pbar-'+n, async b64=>{
       const vera=m.fasi.find(x=>x.id===f.id); vera.audio=b64; await Store.setMedia(id,m);
       apriCantiere(id); toast('Voce aggiunta alla fase.'); }); });
-  $('#sIn').querySelectorAll('[data-modfase]').forEach(b=>b.onclick=async()=>{
-    const n=+b.dataset.modfase, f=fasi[n];
-    const nome=prompt('Nome della fase:',f.nome||''); if(nome===null)return;
-    const nota=prompt('Nota:',f.nota||''); if(nota===null)return;
-    const vera=m.fasi.find(x=>x.id===f.id); vera.nome=nome; vera.nota=nota;
-    await Store.setMedia(id,m); apriCantiere(id); toast('Fase modificata.'); });
+  $('#sIn').querySelectorAll('[data-modfase]').forEach(b=>b.onclick=()=>{
+    const f=fasi[+b.dataset.modfase];
+    apriSheet('Modifica fase',moduloFase(c,f,f.foto));
+    $('#fAnnulla').onclick=()=>apriCantiere(id);
+    legaModuloFase(async()=>{
+      const vera=m.fasi.find(x=>x.id===f.id);
+      vera.nome=$('#fNome').value.trim(); vera.data=$('#fData').value||vera.data;
+      vera.minuti=+$('#fMin').value||0; vera.cambiato=$('#fCambiato').value.trim(); vera.note=$('#fNote').value.trim();
+      await Store.setMedia(id,m); apriCantiere(id); toast('Fase modificata.'); }); });
   $('#sIn').querySelectorAll('[data-delfase]').forEach(b=>b.onclick=async()=>{
     const f=fasi[+b.dataset.delfase]; if(!confirm('Cancellare questa fase?'))return;
     m.fasi=m.fasi.filter(x=>x.id!==f.id); await Store.setMedia(id,m);
@@ -606,15 +624,48 @@ async function apriCantiere(id){
   $('#del').onclick=()=>cancella(id);
 }
 function faseHTML(c,f,n){
+  const d = f.data ? new Date(f.data) : new Date(f.ts);
+  const giorno = d.getDate();
+  const mese = d.toLocaleDateString('it-IT',{month:'short'}).replace('.','');
+  const anno = d.getFullYear();
+  const settimana = d.toLocaleDateString('it-IT',{weekday:'long'});
   return `<div class="fase">
-   <div class="cap"><span>fase ${n+1}</span><i>${it(f.ts)}</i></div>
+   <div class="datona"><div class="g">${giorno}<small>${mese} ${anno}</small></div>
+     <div class="e"><b>fase ${n+1}${f.nome?' · '+esc(f.nome):''}</b><span>${settimana}${f.minuti?' · '+durata(f.minuti)+' di lavoro':''}</span></div></div>
    <img src="${f.foto}" alt="" loading="lazy">
-   <div class="nm">${esc(f.nome||'senza nome')}</div>
-   ${f.nota?`<div class="tx">${esc(f.nota)}</div>`:'<div style="height:10px"></div>'}
+   ${f.cambiato?`<div class="nm" style="font-size:18px;padding-top:12px">${esc(f.cambiato)}</div>`:''}
+   ${f.note?`<div class="tx">${esc(f.note)}</div>`:'<div style="height:10px"></div>'}
    ${f.audio?`<div style="padding:0 12px 12px"><audio controls src="${f.audio}"></audio></div>`:''}
    <div class="az"><a data-cond="${n}">condividi ↗</a><button data-vocefase="${n}">${f.audio?'rivoce':'voce'}</button><button data-modfase="${n}">modifica</button><button class="canc" data-delfase="${n}">elimina</button></div>
    <div class="prog" id="pbar-w-${n}" style="display:none;margin:0"><i id="pbar-${n}"></i></div></div>`;
 }
+
+/* modulo della fase: si apre dopo lo scatto, o dalla modifica */
+function moduloFase(c,f,foto){
+  const oggiIso=oggi();
+  return `<img class="hero" src="${foto||f.foto}" alt="" style="margin-bottom:6px">
+  <label>Che fase è</label>
+  <div class="chips">${['fondo','prima stesura','seconda mano','dettagli','ho coperto tutto','ripresa','ultima mano'].map(v=>`<button class="chip faz" data-v="${v}">${v}</button>`).join('')}</div>
+  <input id="fNome" placeholder="oppure scrivilo tu" style="margin-top:10px" value="${esc(f?f.nome:'')}">
+  <div class="due"><div><label>Giorno</label><input type="date" id="fData" value="${f&&f.data?f.data:oggiIso}"></div>
+  <div><label>Minuti di lavoro</label><input type="number" id="fMin" inputmode="numeric" placeholder="es. 90" value="${f&&f.minuti?f.minuti:''}"></div></div>
+  <div class="chips" style="margin-top:9px">${[15,30,60,90,120,180,240].map(v=>`<button class="chip min" data-m="${v}">${durata(v)}</button>`).join('')}</div>
+  <label>Cosa è cambiato</label>
+  <input id="fCambiato" placeholder="in una riga: il fondo è sparito" value="${esc(f?f.cambiato:'')}">
+  <label>Note aggiuntive</label>
+  <textarea id="fNote" placeholder="cosa hai pensato, cosa non va, cosa provi domani">${esc(f?f.note:'')}</textarea>
+  <button class="btn" id="fSalva">${f?'salva la fase':'aggiungi la fase'}</button>
+  <button class="btn ghost" id="fAnnulla">annulla</button>`;
+}
+function legaModuloFase(salva){
+  $('#sIn').querySelectorAll('.faz').forEach(b=>b.onclick=()=>{ $('#fNome').value = $('#fNome').value===b.dataset.v ? '' : b.dataset.v;
+    $('#sIn').querySelectorAll('.faz').forEach(x=>x.classList.toggle('on',x.dataset.v===$('#fNome').value)); });
+  $('#sIn').querySelectorAll('.min').forEach(b=>b.onclick=()=>{ $('#fMin').value=b.dataset.m;
+    $('#sIn').querySelectorAll('.min').forEach(x=>x.classList.toggle('on',x.dataset.m===b.dataset.m)); });
+  const n=$('#fNome').value; $('#sIn').querySelectorAll('.faz').forEach(x=>x.classList.toggle('on',x.dataset.v===n));
+  $('#fSalva').onclick=salva;
+}
+
 async function modificaCantiere(id){ const i=items.find(x=>x.id===id); const m=await Store.media(id);
   draft={id,tipo:'cantiere',photos:(m.fasi&&m.fasi[0])?[m.fasi[0].foto]:[],thumb:i.thumb,ratio:i.ratio,audio:m.audio,tecnica:i.tecnica||'',supporto:i.supporto||''};
   editId=id; apriSheet('Modifica opera',moduloCantiere(i)); legaCantiere(); }
