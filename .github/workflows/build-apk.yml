@@ -36,6 +36,13 @@ jobs:
       - name: Crea il progetto Android
         run: npx cap add android
 
+      - name: Installa il salvataggio nativo e i permessi
+        run: |
+          mkdir -p android/app/src/main/java/info/dandreart/deadart
+          cp native/android/DeadArtFilePlugin.java android/app/src/main/java/info/dandreart/deadart/DeadArtFilePlugin.java
+          cp native/android/MainActivity.java android/app/src/main/java/info/dandreart/deadart/MainActivity.java
+          ls -la android/app/src/main/java/info/dandreart/deadart
+
       - name: Sincronizza i file dell'app
         run: npx cap sync android
 
