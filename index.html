@@ -187,6 +187,7 @@ a{color:var(--rosso)}
 <div class="wrap">
   <header>
     <svg class="spir" viewBox="0 0 200 200"><path id="sp" fill="none" stroke="#D22B1E" stroke-width="2"/></svg>
+    <button id="esciSu" title="chiudi l'app" style="position:absolute;top:22px;right:16px;z-index:3;background:none;border:2px solid #4A443A;color:#B8B2A6;width:38px;height:38px;font-family:var(--mono);font-size:17px;line-height:1;cursor:pointer">✕</button>
     <div class="marchio">Dead<i>Art</i></div>
     <div class="sotto">le opere in corso e quelle che non ci sono più</div>
   </header>
@@ -367,7 +368,7 @@ async function creaPDF(pagine,titoloDoc){
     let idImg=null, iw=0, ih=0;
     if(p.foto){
       try{
-        const grande=await carica(p.foto);
+        const grande=await Promise.race([carica(p.foto), new Promise((_,k)=>setTimeout(()=>k(new Error('immagine lenta')),8000))]);
         // dentro il PDF basta molto meno: così il file resta leggero e il telefono non si blocca
         const ridotta=rid(grande, 1000, .58);
         const im=await carica(ridotta);
@@ -454,11 +455,12 @@ async function pdfDaTab(quale){
   }
   const nome = (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf';
   try{ await condividi(await creaPDF(pagine), nome, 'DeadArt') }
-  catch(e){ toast('PDF non riuscito: prova con meno schede.') }
+  catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'prova con meno schede')) }
 }
 
 async function pdfOpera(id){
-  const c=items.find(x=>x.id===id); const m=await Store.media(id);
+  const c=items.find(x=>x.id===id); if(!c){toast('Opera non trovata');return}
+  const m=await Store.media(id);
   const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
   toast('Preparo il PDF… non chiudere l\'app');
   await new Promise(r=>setTimeout(r,60));
@@ -473,7 +475,7 @@ async function pdfOpera(id){
     sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
     righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' }) });
   try{ await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
-  catch(e){ toast('PDF non riuscito.') }
+  catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'errore sconosciuto')) }
 }
 
 /* ===== viste ===== */
@@ -561,10 +563,11 @@ function vInfo(){return `<div class="info">
  <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
  <div class="occhiello">Copia di sicurezza</div>
  <p style="font-size:14.5px;margin-top:12px">I dati stanno solo qui: se cambi telefono o disinstalli l'app, spariscono. Esporta ogni tanto.</p></div>
- <button class="btn giallo" id="exp">esporta la copia delle schede</button>
+ <button class="btn giallo" id="expTutto">copia completa, con le immagini</button>
+ <button class="btn ghost" id="exp">copia leggera, solo le schede</button>
  <button class="btn ghost" id="imp">importa una copia</button>
  <input type="file" id="fImp" accept=".json,application/json" hidden>
- <p class="nota">La copia contiene le <b>schede</b>: titoli, date, misure, tecniche, note, fasi con i loro tempi. È un file leggero, che puoi mandarti per email. <b>Non contiene le immagini</b>, che sono troppo pesanti: per quelle usa l'esportazione in PDF, o la condivisione della singola foto.</p>
+ <p class="nota">La <b>copia completa</b> contiene tutto: schede, fotografie e registrazioni. È un file grosso — mettilo su Drive o su una chiavetta, non sull'email. La <b>copia leggera</b> ha solo i dati scritti: pesa pochi KB e si manda per email, ma le immagini non ci sono. Con «importa» si rimettono a posto tutte e due.</p>
  <button class="btn rossa" id="wipe">cancella tutto</button>
  <button class="btn ghost" id="esci" style="margin-top:34px">chiudi l'app</button>`;
 }
@@ -743,7 +746,7 @@ async function apriCantiere(id){
         minuti:+$('#fMin').value||0, cambiato:$('#fCambiato').value.trim(), note:$('#fNote').value.trim(), foto:r2.full});
       await Store.setMedia(id,m);
       c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
-      await Store.salva(c); apriCantiere(id); toast('Fase aggiunta.'); });
+      await Store.salva(c); render(); apriCantiere(id); toast('Fase aggiunta.'); });
   };
   $('#fFaseCam').onchange=nuovaFase; $('#fFaseGal').onchange=nuovaFase;
 
@@ -767,12 +770,12 @@ async function apriCantiere(id){
       const vera=m.fasi.find(x=>x.id===f.id);
       vera.nome=$('#fNome').value.trim(); vera.data=$('#fData').value||vera.data;
       vera.minuti=+$('#fMin').value||0; vera.cambiato=$('#fCambiato').value.trim(); vera.note=$('#fNote').value.trim();
-      await Store.setMedia(id,m); apriCantiere(id); toast('Fase modificata.'); }); });
+      await Store.setMedia(id,m); render(); apriCantiere(id); toast('Fase modificata.'); }); });
   $('#sIn').querySelectorAll('[data-delfase]').forEach(b=>b.onclick=async()=>{
     const f=fasi[+b.dataset.delfase]; if(!confirm('Cancellare questa fase?'))return;
     m.fasi=m.fasi.filter(x=>x.id!==f.id); await Store.setMedia(id,m);
     c.nFasi=m.fasi.length; c.ultima=m.fasi.length?m.fasi[m.fasi.length-1].ts:null; await Store.salva(c);
-    apriCantiere(id); toast('Fase cancellata.'); });
+    render(); apriCantiere(id); toast('Fase cancellata.'); });
 
   $('#pdfOp').onclick=()=>pdfOpera(id);
   $('#chiudi').onclick=async()=>{ c.chiuso=!c.chiuso; await Store.salva(c); chiudiSheet(); render(); toast(c.chiuso?'Segnata come finita.':'Riaperta.'); };
@@ -893,6 +896,35 @@ function apriSheet(t,h,onAct){ $('#sTitle').textContent=t; $('#sIn').innerHTML=h
 function chiudiSheet(){ $('#sheet').classList.remove('on'); draft=null; editId=null; }
 const apri=id=>{const i=items.find(x=>x.id===id); if(!i)return; i.tipo==='cantiere'?apriCantiere(id):apriScarto(id)};
 
+async function importaCompleto(f){
+  let intestazione=null, n=0;
+  const usa=async riga=>{
+    if(!riga.trim())return;
+    const d=JSON.parse(riga);
+    if(d.formato==='ndjson'){ intestazione=d;
+      if(!confirm('Importare '+(d.schede||'?')+' schede complete di immagini? Quelle già presenti verranno sostituite.')) throw new Error('annullato');
+      return; }
+    if(!d.item)return;
+    const o=d.item; if(!o.tipo)o.tipo='scarto';
+    const g=items.findIndex(x=>x.id===o.id);
+    if(g>=0) items[g]=o; else items.push(o);
+    await Store.salva(o);
+    if(d.media) await Store.setMedia(o.id,d.media);
+    if(++n%5===0) toast('Importate '+n+'…');
+  };
+  if(f.stream){
+    const lettore=f.stream().getReader(); const dec=new TextDecoder(); let resto='';
+    while(true){ const {done,value}=await lettore.read(); if(done)break;
+      resto+=dec.decode(value,{stream:true});
+      let i; while((i=resto.indexOf('\n'))>=0){ const riga=resto.slice(0,i); resto=resto.slice(i+1); await usa(riga) } }
+    if(resto.trim()) await usa(resto);
+  } else {
+    for(const riga of (await f.text()).split('\n')) await usa(riga);
+  }
+  if(!intestazione) throw new Error('non è una copia di DeadArt');
+  render(); toast('Importate '+n+' schede con le immagini.');
+}
+
 async function importaTesto(testo){
   let dati;
   try{ dati=JSON.parse(testo) }
@@ -944,22 +976,42 @@ function lega(){
     }
     await condividi(new Blob([JSON.stringify(out)],{type:'application/json'}),
       'deadart-schede-'+oggi()+'.json','Copia delle schede DeadArt'); };
+  const et=$('#expTutto'); if(et)et.onclick=async()=>{
+    if(!items.length){toast('Non c\'è ancora niente da salvare.');return}
+    toast('Preparo la copia… non chiudere l\'app');
+    await new Promise(r=>setTimeout(r,60));
+    // una riga per scheda: non si costruisce mai un testo unico enorme
+    const parti=[JSON.stringify({app:'DeadArt',formato:'ndjson',versione:3,data:new Date().toISOString(),schede:items.length})+'\n'];
+    let n=0;
+    for(const i of items){
+      const m=await Store.media(i.id);
+      parti.push(JSON.stringify({item:i,media:m})+'\n');
+      if(++n%5===0){ toast('Raccolgo… '+n+' di '+items.length); await new Promise(r=>setTimeout(r,0)) }
+    }
+    const blob=new Blob(parti,{type:'application/x-ndjson'});
+    await condividi(blob,'deadart-completo-'+oggi()+'.json','Copia completa DeadArt'); };
   const im=$('#imp'); if(im)im.onclick=()=>$('#fImp').click();
   const fi=$('#fImp'); if(fi)fi.onchange=async e=>{
     const f=e.target.files[0]; if(!f)return; e.target.value='';
-    toast('Sto leggendo il file…'); await importaTesto(await f.text()); };
+    toast('Sto leggendo il file…');
+    try{
+      if(f.size>4*1024*1024 || (await f.slice(0,60).text()).includes('"ndjson"')) await importaCompleto(f);
+      else await importaTesto(await f.text());
+    }catch(err){ toast('Lettura non riuscita: '+((err&&err.message)||'file illeggibile')) } };
   const wp=$('#wipe'); if(wp)wp.onclick=async()=>{
     if(!confirm('Cancellare tutto l\'archivio? Non si torna indietro.'))return;
     for(const i of items){ await Store.togli(i.id); await Store.delMedia(i.id) }
     items=[]; if(Store.modo==='anteprima') await Store.salva();
     render(); toast('Archivio vuoto.') };
-  const es=$('#esci'); if(es)es.onclick=async()=>{
+  const es=$('#esci'); if(es)es.onclick=chiudiApp;
+  const esu=$('#esciSu'); if(esu)esu.onclick=()=>{ if(confirm('Chiudere DeadArt?')) chiudiApp() };
+  async function chiudiApp(){
     const N=nativo();
     if(N && typeof N.chiudi==='function'){ try{ await N.chiudi(); return }catch(e){} }
     const C=window.Capacitor;
     if(C&&C.Plugins&&C.Plugins.App&&C.Plugins.App.exitApp){ try{ C.Plugins.App.exitApp(); return }catch(e){} }
     try{ window.close() }catch(e){}
-    setTimeout(()=>toast('Da qui non posso chiudere: usa il tasto indietro del telefono.'),300); };
+    setTimeout(()=>toast('Da qui non posso chiudere: usa il tasto indietro del telefono.'),300); }
   document.querySelectorAll('[data-pdf]').forEach(b=>b.onclick=()=>pdfDaTab(b.dataset.pdf));
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render();scrollTo({top:0,behavior:'smooth'})});
