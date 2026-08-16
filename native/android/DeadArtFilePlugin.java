@@ -106,6 +106,16 @@ public class DeadArtFilePlugin extends Plugin {
         }
     }
 
+    /** Chiude l'app per davvero, non la manda solo in secondo piano. */
+    @PluginMethod
+    public void chiudi(PluginCall call) {
+        call.resolve();
+        getActivity().runOnUiThread(() -> {
+            try { getActivity().finishAffinity(); }
+            catch (Exception e) { getActivity().finish(); }
+        });
+    }
+
     private String queryName(Uri uri) {
         try (Cursor c = getContext().getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst()) {
