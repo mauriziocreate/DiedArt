@@ -157,6 +157,14 @@ audio{width:100%;margin-top:10px}
 .avanz{height:10px;border:2px solid var(--nero);background:var(--bianco);margin:16px 0 0}
 .avanz i{display:block;height:100%;background:var(--rosso)}
 
+.decfoto{width:100%;display:block;border:2px solid var(--nero);margin-bottom:12px}
+.decdati{background:var(--nero);color:var(--carta);padding:9px 12px;margin-bottom:16px}
+.decdati b{font-family:var(--disp);font-size:19px;display:block;line-height:1.1}
+.decdati span{font-size:11px;color:var(--giallo);letter-spacing:.06em}
+.coda{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.coda::-webkit-scrollbar{display:none}
+.coda button{flex:0 0 auto;width:60px;height:60px;padding:0;border:2px solid var(--nero);background:var(--bianco) center/cover;cursor:pointer;opacity:.45;position:relative}
+.coda button.on{opacity:1;border-color:var(--rosso);box-shadow:0 0 0 2px var(--rosso)}
 .dec{border:3px solid var(--rosso);background:var(--bianco);padding:24px 20px;margin-top:20px}
 .dec .q{font-family:var(--disp);font-size:34px;line-height:1.02;margin:0 0 12px;letter-spacing:-.02em}
 .dec .sub{font-size:14px;color:var(--nero);margin:0 0 18px;line-height:1.55}
@@ -210,7 +218,7 @@ a{color:var(--rosso)}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const D=864e5, ATTESA=7*D, FINESTRA=8*D, MAXBYTE=1024*1024;
-let items=[], tab='cant', draft=null, rec=null, editId=null;
+let items=[], tab='cant', draft=null, rec=null, editId=null, decSel=null;
 const now=()=>Date.now();
 const it=d=>d?new Date(d).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}):'';
 const oggi=()=>new Date().toISOString().slice(0,10);
@@ -603,16 +611,25 @@ function vDec(){
   const q=scarti().filter(i=>!i.parola&&!i.dimenticata&&now()>=i.createdAt+ATTESA);
   const a=scarti().filter(i=>!i.parola&&!i.dimenticata&&now()<i.createdAt+ATTESA);
   const spiega=`<div class="occhiello">Cos'è la decantazione</div>
-   <p style="margin-top:12px;font-size:15px">Quando archivi un'opera l'app non ti chiede subito perché l'hai scartata: nel momento in cui la butti sei ancora dentro la rabbia o la fretta, e quello che diresti sarebbe una scusa. Passano sette giorni. Poi l'app ti fa una domanda sola — <strong style="background:#F5B301;padding:0 3px">cosa è rimasto?</strong> — e tu rispondi con una parola e cinque secondi di voce, prima di rivedere l'immagine. Quella parola diventa il nome della scheda. Se non rispondi entro il giorno dopo, resta scritto <em>dimenticata</em>: anche non ricordare è un'informazione su di te.</p>`;
-  if(!q.length)return `<div class="vuoto"><p>Niente da dire, per ora.</p><span>${a.length?a.length+(a.length==1?' scheda sta decantando.':' schede stanno decantando.'):'Nessuna scheda in attesa.'}</span></div>`+spiega;
-  const i=q[0];
-  return `<div class="dec" data-id="${i.id}"><p class="q">Cosa è rimasto?</p>
-   <p class="sub">Una parola sola, quella che ti è restata addosso dopo sette giorni. Hai tempo fino a domani: dopo, la scheda resta senza.</p>
-   <input type="text" id="pw" maxlength="24" placeholder="una parola" autocomplete="off" autocapitalize="none">
-   <div class="reg"><button id="mic">cinque secondi di voce</button><div class="prog"><i id="pbar"></i></div><div id="vplay"></div></div>
-   <button class="btn rossa" id="sigilla">sigilla</button></div>
-   ${q.length>1?`<p class="nota" style="text-align:center">Altre ${q.length-1} in coda.</p>`:''}`+spiega;
+   <p style="margin-top:12px;font-size:15px">Quando archivi un'opera l'app non ti chiede subito perché l'hai scartata: nel momento in cui la butti sei ancora dentro la rabbia o la fretta, e quello che diresti sarebbe una scusa. Passano sette giorni. Poi l'app ti fa una domanda sola — <strong>cosa è rimasto?</strong> — e tu rispondi con una parola e cinque secondi di voce. Quella parola diventa il nome della scheda. Se non rispondi entro il giorno dopo, resta scritto <em>dimenticata</em>: anche non ricordare è un'informazione su di te.</p>`;
+  if(!q.length){ decSel=null;
+    return `<div class="vuoto"><p>Niente da dire, per ora.</p><span>${a.length?a.length+(a.length==1?' scheda sta decantando.':' schede stanno decantando.'):'Nessuna scheda in attesa.'}</span></div>`+spiega; }
+  const i = q.find(x=>x.id===decSel) || q[0];
+  decSel = i.id;
+  const scad = Math.max(0, Math.ceil((i.createdAt+FINESTRA-now())/D));
+  const dati = [misure(i), i.anno, i.destino].filter(Boolean).join(' · ');
+  return `${q.length>1?`<div class="occhiello">${q.length} schede ti aspettano</div>
+    <div class="coda">${q.map(x=>`<button data-dec="${x.id}" class="${x.id===i.id?'on':''}" style="background-image:url(${x.thumb||''})" title="${esc(x.titolo||'senza titolo')}"></button>`).join('')}</div>`:''}
+   <div class="dec" data-id="${i.id}">
+    ${i.thumb?`<img class="decfoto" src="${i.thumb}" alt="">`:''}
+    <div class="decdati"><b>${esc(i.titolo||'senza titolo')}</b><span>${esc(dati||'nessun dato')} · scartata il ${it(i.dataScarto)||it(i.createdAt)}</span></div>
+    <p class="q">Cosa è rimasto?</p>
+    <p class="sub">Una parola sola, quella che ti è restata addosso dopo sette giorni.${scad?' Hai ancora '+scad+(scad==1?' giorno':' giorni')+': dopo, la scheda resta senza.':' Scade oggi.'}</p>
+    <input type="text" id="pw" maxlength="24" placeholder="una parola" autocomplete="off" autocapitalize="none">
+    <div class="reg"><button id="mic">cinque secondi di voce</button><div class="prog"><i id="pbar"></i></div><div id="vplay"></div></div>
+    <button class="btn rossa" id="sigilla">sigilla</button></div>`+spiega;
 }
+
 function vInfo(){return `<div class="info">
  <h2>A cosa serve DeadArt</h2>
  <p><strong>Il cantiere</strong> tiene le opere mentre nascono. Apri una scheda quando cominci e fotografi il lavoro ogni volta che cambia: ogni scatto diventa una fase, con la sua data, il suo nome e la sua nota. Alla fine hai la storia del quadro, non solo il quadro — e puoi scaricare ogni fase come immagine da mostrare, stampare o pubblicare.</p>
@@ -960,12 +977,14 @@ function lega(){
     apriSheet('Cartella',`<h2 style="margin-top:2px">${esc(k)}</h2><p class="grigio" style="font-size:14px">${l.length} schede</p>
       <div class="grid">${l.map(i=>i.tipo==='cantiere'?cardCant(i):carta(i)).join('')}</div>`);
     $('#sIn').querySelectorAll('.card').forEach(c=>c.onclick=()=>apri(c.dataset.id)); });
+  document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ decSel=b.dataset.dec; render() });
   const dec=document.querySelector('.dec');
   if(dec){ let voce=null;
     $('#mic').onclick=()=>registra($('#mic'),5,b=>{voce=b;$('#vplay').innerHTML=`<audio controls src="${b}"></audio>`});
     $('#sigilla').onclick=async()=>{ const w=($('#pw').value||'').trim().split(/\s+/)[0]; if(!w){toast('Serve una parola.');return}
       const i=items.find(x=>x.id===dec.dataset.id); i.parola=w; i.parolaAt=now(); await Store.salva(i);
-      if(voce){const m=await Store.media(i.id);m.voce=voce;await Store.setMedia(i.id,m)} render(); toast('Sigillata: '+w); }; }
+      if(voce){const m=await Store.media(i.id);m.voce=voce;await Store.setMedia(i.id,m)}
+      decSel=null; render(); toast('Sigillata: '+w); }; }
   const ex=$('#exp'); if(ex)ex.onclick=async()=>{
     if(!items.length){toast('Non c\'è ancora niente da salvare.');return}
     const out={app:'DeadArt',versione:2,data:new Date().toISOString(),items:[],fasi:{}};
