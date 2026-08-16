@@ -361,7 +361,7 @@ async function perPdf(foto){
   }catch(e){ return null }
 }
 
-async function creaPDF(pagine,titoloDoc){
+async function creaPDF(pagine,intestazione){
   // il PDF vuole un byte per carattere (WinAnsi), non UTF-8: altrimenti gli accenti saltano
   const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
   const pezzi=[]; let lung=0;
@@ -389,6 +389,14 @@ async function creaPDF(pagine,titoloDoc){
     // contenuto
     let y=A4[1]-MARG, c='';
     const larg=A4[0]-MARG*2;
+    // intestazione: il titolo dell'opera in cima a ogni pagina
+    const testa = p.intestazione || intestazione;
+    if(testa){
+      c+=`BT /F2 8 Tf 0.64 0.17 0.12 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(testa.toUpperCase())}) Tj ET 0 0 0 rg\n`;
+      const nPag=`${pagine.indexOf(p)+1} / ${pagine.length}`;
+      c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${A4[0]-MARG-32} ${y} Tm (${pdfTxt(nPag)}) Tj ET 0 0 0 rg\n`;
+      y-=6; c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.8 w S\n`; y-=18;
+    }
     if(idImg){
       const maxH=A4[1]*0.46, s=Math.min(larg/iw, maxH/ih), w=iw*s, hh=ih*s;
       c+=`q ${w.toFixed(2)} 0 0 ${hh.toFixed(2)} ${(MARG+(larg-w)/2).toFixed(2)} ${(y-hh).toFixed(2)} cm /Im0 Do Q\n`;
@@ -459,12 +467,14 @@ async function pdfDaTab(quale){
     }
     if(i.progetto)righe.push(['cartella',i.progetto]);
     pagine.push({ foto,
+      intestazione: (quale==='cant'?'DeadArt — cantiere · ':'DeadArt — archivio · ')+(i.titolo||i.parola||'senza titolo'),
       titolo: quale==='cant' ? (i.titolo||'senza titolo') : (i.parola||i.titolo||'senza titolo'),
       sottotitolo: quale==='cant' ? '' : (i.parola? (i.titolo||'senza titolo') : (i.dimenticata?'dimenticata':'in decantazione')),
       righe, testo: i.note||'' });
   }
   const nome = (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf';
-  try{ await condividi(await creaPDF(pagine), nome, 'DeadArt') }
+  const testa = quale==='cant' ? 'DeadArt — cantiere' : 'DeadArt — archivio';
+  try{ await condividi(await creaPDF(pagine,testa), nome, 'DeadArt') }
   catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'prova con meno schede')) }
 }
 
@@ -488,7 +498,7 @@ async function pdfOpera(id){
       sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
       righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' });
   }
-  try{ await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
+  try{ await condividi(await creaPDF(pagine, c.titolo||'senza titolo'), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
   catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'errore sconosciuto')) }
 }
 
@@ -575,13 +585,9 @@ function vInfo(){return `<div class="info">
  <p>Tutto resta sul telefono: nessun account, nessun server, nessun cookie, nessuna pubblicità.</p>
  <div class="firma">Maurizio D'Andrea<br><span style="font-family:var(--mono);font-size:13px;font-weight:400">artista internazionale</span></div>
  <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
- <div class="occhiello">Copia di sicurezza</div>
- <p style="font-size:14.5px;margin-top:12px">I dati stanno solo qui: se cambi telefono o disinstalli l'app, spariscono. Esporta ogni tanto.</p></div>
- <button class="btn giallo" id="expTutto">copia completa, con le immagini</button>
- <button class="btn ghost" id="exp">copia leggera, solo le schede</button>
- <button class="btn ghost" id="imp">importa una copia</button>
- <input type="file" id="fImp" accept=".json,application/json" hidden>
- <p class="nota">La <b>copia completa</b> contiene tutto: schede, fotografie e registrazioni. È un file grosso — mettilo su Drive o su una chiavetta, non sull'email. La <b>copia leggera</b> ha solo i dati scritti: pesa pochi KB e si manda per email, ma le immagini non ci sono. Con «importa» si rimettono a posto tutte e due.</p>
+ <div class="occhiello">Tenere una copia</div>
+ <p style="font-size:14.5px;margin-top:12px">I dati stanno solo su questo telefono: se lo cambi o disinstalli l'app, spariscono. Per conservare il lavoro usa l'<b>esportazione in PDF</b> — dal cantiere, dall'archivio o dalla singola opera: quei documenti contengono le immagini e tutti i dati, si aprono su qualsiasi computer e non hanno bisogno di DeadArt per essere letti.</p>
+ <p style="font-size:14.5px">Per una foto singola, il pulsante <b>condividi</b> dentro ogni scheda.</p></div>
  <button class="btn rossa" id="wipe">cancella tutto</button>
  <button class="btn ghost" id="esci" style="margin-top:34px">chiudi l'app</button>`;
 }
@@ -910,62 +916,6 @@ function apriSheet(t,h,onAct){ $('#sTitle').textContent=t; $('#sIn').innerHTML=h
 function chiudiSheet(){ $('#sheet').classList.remove('on'); draft=null; editId=null; }
 const apri=id=>{const i=items.find(x=>x.id===id); if(!i)return; i.tipo==='cantiere'?apriCantiere(id):apriScarto(id)};
 
-async function importaCompleto(f){
-  let intestazione=null, n=0;
-  const usa=async riga=>{
-    if(!riga.trim())return;
-    const d=JSON.parse(riga);
-    if(d.formato==='ndjson'){ intestazione=d;
-      if(!confirm('Importare '+(d.schede||'?')+' schede complete di immagini? Quelle già presenti verranno sostituite.')) throw new Error('annullato');
-      return; }
-    if(!d.item)return;
-    const o=d.item; if(!o.tipo)o.tipo='scarto';
-    const g=items.findIndex(x=>x.id===o.id);
-    if(g>=0) items[g]=o; else items.push(o);
-    await Store.salva(o);
-    if(d.media) await Store.setMedia(o.id,d.media);
-    if(++n%5===0) toast('Importate '+n+'…');
-  };
-  if(f.stream){
-    const lettore=f.stream().getReader(); const dec=new TextDecoder(); let resto='';
-    while(true){ const {done,value}=await lettore.read(); if(done)break;
-      resto+=dec.decode(value,{stream:true});
-      let i; while((i=resto.indexOf('\n'))>=0){ const riga=resto.slice(0,i); resto=resto.slice(i+1); await usa(riga) } }
-    if(resto.trim()) await usa(resto);
-  } else {
-    for(const riga of (await f.text()).split('\n')) await usa(riga);
-  }
-  if(!intestazione) throw new Error('non è una copia di DeadArt');
-  render(); toast('Importate '+n+' schede con le immagini.');
-}
-
-async function importaTesto(testo){
-  let dati;
-  try{ dati=JSON.parse(testo) }
-  catch(e){ toast('Il file non si legge: forse è incompleto.'); return }
-  if(!dati || !Array.isArray(dati.items)){ toast('Questo non è un file di DeadArt.'); return }
-  if(!confirm('Importare '+dati.items.length+' schede? Le immagini non sono nella copia: restano solo quelle già sul telefono.'))return;
-  let n=0;
-  for(const o of dati.items){
-    if(!o.tipo)o.tipo='scarto';
-    const g=items.findIndex(x=>x.id===o.id);
-    if(g>=0) items[g]=Object.assign(items[g],o); else items.push(o);
-    await Store.salva(items.find(x=>x.id===o.id));
-    const m=await Store.media(o.id);
-    // formato 2: solo i dati delle fasi, le foto restano quelle che ci sono
-    if(dati.fasi && dati.fasi[o.id]){
-      const esistenti=m.fasi||[];
-      m.fasi=dati.fasi[o.id].map(f=>{ const v=esistenti.find(x=>x.id===f.id); return Object.assign({},f,v?{foto:v.foto,audio:v.audio}:{}) })
-        .filter(f=>f.foto);
-      await Store.setMedia(o.id,m);
-    }
-    // formato 1, quello vecchio con dentro le immagini
-    else if(dati.media && dati.media[o.id]) await Store.setMedia(o.id,dati.media[o.id]);
-    n++;
-  }
-  render(); toast('Importate '+n+' schede.');
-}
-
 /* ===== eventi ===== */
 function lega(){
   document.querySelectorAll('.card').forEach(c=>c.onclick=()=>apri(c.dataset.id));
@@ -990,28 +940,6 @@ function lega(){
     }
     await condividi(new Blob([JSON.stringify(out)],{type:'application/json'}),
       'deadart-schede-'+oggi()+'.json','Copia delle schede DeadArt'); };
-  const et=$('#expTutto'); if(et)et.onclick=async()=>{
-    if(!items.length){toast('Non c\'è ancora niente da salvare.');return}
-    toast('Preparo la copia… non chiudere l\'app');
-    await new Promise(r=>setTimeout(r,60));
-    // una riga per scheda: non si costruisce mai un testo unico enorme
-    const parti=[JSON.stringify({app:'DeadArt',formato:'ndjson',versione:3,data:new Date().toISOString(),schede:items.length})+'\n'];
-    let n=0;
-    for(const i of items){
-      const m=await Store.media(i.id);
-      parti.push(JSON.stringify({item:i,media:m})+'\n');
-      if(++n%5===0){ toast('Raccolgo… '+n+' di '+items.length); await new Promise(r=>setTimeout(r,0)) }
-    }
-    const blob=new Blob(parti,{type:'application/x-ndjson'});
-    await condividi(blob,'deadart-completo-'+oggi()+'.json','Copia completa DeadArt'); };
-  const im=$('#imp'); if(im)im.onclick=()=>$('#fImp').click();
-  const fi=$('#fImp'); if(fi)fi.onchange=async e=>{
-    const f=e.target.files[0]; if(!f)return; e.target.value='';
-    toast('Sto leggendo il file…');
-    try{
-      if(f.size>4*1024*1024 || (await f.slice(0,60).text()).includes('"ndjson"')) await importaCompleto(f);
-      else await importaTesto(await f.text());
-    }catch(err){ toast('Lettura non riuscita: '+((err&&err.message)||'file illeggibile')) } };
   const wp=$('#wipe'); if(wp)wp.onclick=async()=>{
     if(!confirm('Cancellare tutto l\'archivio? Non si torna indietro.'))return;
     for(const i of items){ await Store.togli(i.id); await Store.delMedia(i.id) }
