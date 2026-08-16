@@ -350,6 +350,17 @@ function spezza(testo,max){ const parole=String(testo||'').split(/\s+/); const r
   for(const p of parole){ if((r+' '+p).trim().length>max){ if(r)righe.push(r); r=p } else r=(r?r+' ':'')+p }
   if(r)righe.push(r); return righe }
 
+// una immagine alla volta, ridotta e subito liberata: mai tutte in memoria insieme
+async function perPdf(foto){
+  if(!foto) return null;
+  try{
+    const im=await Promise.race([carica(foto), new Promise((_,k)=>setTimeout(()=>k(new Error('immagine lenta')),8000))]);
+    const piccola=rid(im,1000,.58);
+    await new Promise(r=>setTimeout(r,0));
+    return piccola;
+  }catch(e){ return null }
+}
+
 async function creaPDF(pagine,titoloDoc){
   // il PDF vuole un byte per carattere (WinAnsi), non UTF-8: altrimenti gli accenti saltano
   const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
@@ -368,12 +379,10 @@ async function creaPDF(pagine,titoloDoc){
     let idImg=null, iw=0, ih=0;
     if(p.foto){
       try{
-        const grande=await Promise.race([carica(p.foto), new Promise((_,k)=>setTimeout(()=>k(new Error('immagine lenta')),8000))]);
-        // dentro il PDF basta molto meno: così il file resta leggero e il telefono non si blocca
-        const ridotta=rid(grande, 1000, .58);
-        const im=await carica(ridotta);
-        const bytes=new Uint8Array(await daDataUrl(ridotta).arrayBuffer());
+        const im=await carica(p.foto);
+        const bytes=new Uint8Array(await daDataUrl(p.foto).arrayBuffer());
         iw=im.naturalWidth||im.width; ih=im.naturalHeight||im.height;
+        p.foto=null;  // liberata subito: è la cosa che faceva chiudere l'app
         idImg=aggiungi([`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, '\nendstream']);
       }catch(e){ idImg=null }
     }
@@ -430,7 +439,8 @@ async function pdfDaTab(quale){
   const pagine=[];
   for(const i of lista.slice().sort((a,b)=>b.createdAt-a.createdAt)){
     const m=await Store.media(i.id);
-    const foto = quale==='cant' ? ((m.fasi&&m.fasi.length)?m.fasi[m.fasi.length-1].foto:null) : (m.photos&&m.photos[0]);
+    const originale = quale==='cant' ? ((m.fasi&&m.fasi.length)?m.fasi[m.fasi.length-1].foto:null) : (m.photos&&m.photos[0]);
+    const foto = await perPdf(originale);
     const righe=[];
     if(i.anno)righe.push(['anno',i.anno]);
     if(misure(i))righe.push(['dimensioni',misure(i)]);
@@ -465,15 +475,19 @@ async function pdfOpera(id){
   toast('Preparo il PDF… non chiudere l\'app');
   await new Promise(r=>setTimeout(r,60));
   const min=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
-  const pagine=[{ foto: fasi.length?fasi[fasi.length-1].foto:null, titolo:c.titolo||'senza titolo',
+  const pagine=[{ foto: await perPdf(fasi.length?fasi[fasi.length-1].foto:null), titolo:c.titolo||'senza titolo',
     sottotitolo:(c.chiuso?'finita':'in corso')+' · '+fasi.length+' fasi'+(min?' · '+durata(min)+' di lavoro':''),
     righe:[ ...(c.anno?[['anno',c.anno]]:[]), ...(misure(c)?[['dimensioni',misure(c)]]:[]),
       ...(c.tecnica?[['tecnica',c.tecnica]]:[]), ...(c.supporto?[['supporto',c.supporto]]:[]),
       ...(c.dataInizio?[['iniziata il',it(c.dataInizio)]]:[]), ...(c.progetto?[['cartella',c.progetto]]:[]) ],
     testo:c.note||'' }];
-  fasi.forEach((f,n)=>{ pagine.push({ foto:f.foto, titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
-    sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
-    righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' }) });
+  for(let n=0;n<fasi.length;n++){
+    const f=fasi[n];
+    toast('Preparo la fase '+(n+1)+' di '+fasi.length);
+    pagine.push({ foto: await perPdf(f.foto), titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
+      sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
+      righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' });
+  }
   try{ await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
   catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'errore sconosciuto')) }
 }
