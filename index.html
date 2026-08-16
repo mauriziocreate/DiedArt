@@ -283,32 +283,33 @@ async function condividi(dato,nome,testo){
   const mime = blob.type || (nome.endsWith('.json')?'application/json':nome.endsWith('.pdf')?'application/pdf':'image/jpeg');
   const N=nativo();
 
-  // APK, file grosso: si scrive a blocchi, altrimenti la memoria esplode
-  if(N && typeof N.salvaInizio==='function' && blob.size>400*1024){
+  // APK, file grosso: si scrive a blocchi. Se il plugin è vecchio o fallisce, si continua sotto.
+  let fatto=false;
+  if(N && blob.size>3*1024*1024){
     try{
       const r=await N.salvaInizio({fileName:nome, mime:mime});
-      if(!r || r.annullato){ toast('Salvataggio annullato.'); return }
+      if(r && r.annullato){ toast('Salvataggio annullato.'); return }
       const PEZZO=256*1024; let scritti=0;
       while(scritti<blob.size){
         const fetta=blob.slice(scritti, Math.min(scritti+PEZZO, blob.size));
         await N.salvaPezzo({base64: await blobBase64(fetta)});
         scritti+=PEZZO;
-        if(blob.size>2*1024*1024) toast('Salvo… '+Math.min(100,Math.round(scritti*100/blob.size))+'%');
+        toast('Salvo… '+Math.min(100,Math.round(scritti*100/blob.size))+'%');
       }
       const f=await N.salvaFine();
-      toast('Salvato: '+((f&&f.nome)||nome));
-      return;
-    }catch(e){ toast('Salvataggio non riuscito'); return }
+      toast('Salvato: '+((f&&f.nome)||nome)); fatto=true;
+    }catch(e){ /* plugin vecchio o errore: si prova la via normale */ }
   }
+  if(fatto) return;
 
-  // APK, file piccolo: in un colpo solo
+  // APK: tutto in un colpo solo
   if(N && typeof N.salva==='function'){
     try{
       const b64 = (typeof dato==='string'&&dato.startsWith('data:')) ? soloBase64(dato) : await blobBase64(blob);
       const r = await N.salva({base64:b64, fileName:nome, mime:mime});
       toast(r && r.annullato ? 'Salvataggio annullato.' : 'Salvato: '+((r&&r.nome)||nome));
       return;
-    }catch(e){ toast('Salvataggio non riuscito'); return }
+    }catch(e){ toast('Salvataggio non riuscito: '+((e&&e.message)||'')); return }
   }
 
   // Chrome e PWA: condivisione di sistema
@@ -341,8 +342,11 @@ function mostraSalvataggio(dato,nome,blob){
 }
 
 
-/* ===== PDF: scritto a mano, nessuna libreria, funziona anche senza rete ===== */
+/* ===== PDF: scritto a mano, nessuna libreria, funziona anche senza rete =====
+   Il documento non viene montato in memoria: si scrive sul file mentre si genera,
+   una pagina alla volta. Così regge anche opere con trenta fasi.                */
 const A4=[595.28,841.89], MARG=42;
+const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
 const lat1=s=>{const a=[];for(const ch of String(s==null?'':s)){const c=ch.charCodeAt(0);a.push(c<256?c:63)}return a};
 const pdfTxt=s=>{let o='';for(const c of lat1(s)){const ch=String.fromCharCode(c);
   o += (ch==='('||ch===')'||ch==='\\') ? '\\'+ch : ch} return o};
@@ -350,105 +354,137 @@ function spezza(testo,max){ const parole=String(testo||'').split(/\s+/); const r
   for(const p of parole){ if((r+' '+p).trim().length>max){ if(r)righe.push(r); r=p } else r=(r?r+' ':'')+p }
   if(r)righe.push(r); return righe }
 
-// una immagine alla volta, ridotta e subito liberata: mai tutte in memoria insieme
+// immagine ridotta per la stampa, poi subito liberata
 async function perPdf(foto){
   if(!foto) return null;
   try{
-    const im=await Promise.race([carica(foto), new Promise((_,k)=>setTimeout(()=>k(new Error('immagine lenta')),8000))]);
-    const piccola=rid(im,1000,.58);
+    const im=await Promise.race([carica(foto), new Promise((_,k)=>setTimeout(()=>k(new Error('immagine lenta')),9000))]);
+    const piccola=rid(im,1000,.56);
+    im.src=''; 
     await new Promise(r=>setTimeout(r,0));
     return piccola;
   }catch(e){ return null }
 }
 
-async function creaPDF(pagine,intestazione){
-  // il PDF vuole un byte per carattere (WinAnsi), non UTF-8: altrimenti gli accenti saltano
-  const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
-  const pezzi=[]; let lung=0;
-  const scrivi=d=>{ const b=(typeof d==='string')?enc1(d):d; pezzi.push(b); lung+=b.length };
-  const oggetti=[]; // [ {corpo: string|Uint8Array[], } ]
-  const off=[];
+/* scrittori: uno tiene in memoria (browser), l'altro scrive sul file (APK) */
+function scrittoreMemoria(){
+  const parti=[]; let tot=0;
+  return { async scrivi(d){ const b=(typeof d==='string')?enc1(d):d; parti.push(b); tot+=b.length },
+    pos(){return tot}, async fine(){ return new Blob(parti,{type:'application/pdf'}) } };
+}
+function scrittoreFile(N,nome){
+  let buf=[], bufLen=0, tot=0;
+  const svuota=async()=>{ if(!bufLen)return; const b=new Blob(buf); buf=[]; bufLen=0;
+    await N.salvaPezzo({base64:await blobBase64(b)}) };
+  return {
+    async apri(){ const r=await N.salvaInizio({fileName:nome,mime:'application/pdf'}); return !(r&&r.annullato) },
+    async scrivi(d){ const b=(typeof d==='string')?enc1(d):d; buf.push(b); bufLen+=b.length; tot+=b.length;
+      if(bufLen>=256*1024) await svuota() },
+    pos(){return tot},
+    async fine(){ await svuota(); return await N.salvaFine() } };
+}
 
-  // font: 1 = catalogo, 2 = pagine, 3 = helvetica, 4 = helvetica-bold
-  const idPagine=[]; const corpi=[];
-  const aggiungi=parti=>{ corpi.push(parti); return corpi.length+4 }; // numeri da 5 in su
+async function scriviPDF(pagine,intestazione,w){
+  const N=pagine.length;
+  const numImg=i=>5+i*3, numCont=i=>6+i*3, numPag=i=>7+i*3;
+  const totOgg=4+N*3;
+  const off=new Array(totOgg+1);
+  const oggetto=async(n,parti)=>{ off[n]=w.pos(); await w.scrivi(`${n} 0 obj\n`);
+    for(const p of parti) await w.scrivi(p); await w.scrivi('\nendobj\n') };
 
-  let fatte=0;
-  for(const p of pagine){
-    if(pagine.length>6 && ++fatte%4===0){ toast('Pagina '+fatte+' di '+pagine.length); await new Promise(r=>setTimeout(r,0)) }
-    let idImg=null, iw=0, ih=0;
-    if(p.foto){
+  await w.scrivi('%PDF-1.4\n');
+  await oggetto(1,['<< /Type /Catalog /Pages 2 0 R >>']);
+  await oggetto(2,[`<< /Type /Pages /Kids [${pagine.map((_,i)=>numPag(i)+' 0 R').join(' ')}] /Count ${N} >>`]);
+  await oggetto(3,['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>']);
+  await oggetto(4,['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']);
+
+  for(let i=0;i<N;i++){
+    const p=pagine[i];
+    if(N>3) toast('Pagina '+(i+1)+' di '+N);
+    let iw=0, ih=0, conImg=false;
+    const ridotta = await perPdf(typeof p.foto==='function' ? await p.foto() : p.foto);
+    if(ridotta){
       try{
-        const im=await carica(p.foto);
-        const bytes=new Uint8Array(await daDataUrl(p.foto).arrayBuffer());
+        const im=await carica(ridotta);
         iw=im.naturalWidth||im.width; ih=im.naturalHeight||im.height;
-        p.foto=null;  // liberata subito: è la cosa che faceva chiudere l'app
-        idImg=aggiungi([`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, '\nendstream']);
-      }catch(e){ idImg=null }
+        const bytes=new Uint8Array(await daDataUrl(ridotta).arrayBuffer());
+        im.src='';
+        await oggetto(numImg(i),[`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, '\nendstream']);
+        conImg=true;
+      }catch(e){ conImg=false }
     }
-    // contenuto
+    if(!conImg) await oggetto(numImg(i),['<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Length 0 >>\nstream\n\nendstream']);
+
     let y=A4[1]-MARG, c='';
     const larg=A4[0]-MARG*2;
-    // intestazione: il titolo dell'opera in cima a ogni pagina
-    const testa = p.intestazione || intestazione;
+    const testa=p.intestazione||intestazione;
     if(testa){
       c+=`BT /F2 8 Tf 0.64 0.17 0.12 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(testa.toUpperCase())}) Tj ET 0 0 0 rg\n`;
-      const nPag=`${pagine.indexOf(p)+1} / ${pagine.length}`;
-      c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${A4[0]-MARG-32} ${y} Tm (${pdfTxt(nPag)}) Tj ET 0 0 0 rg\n`;
+      c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${A4[0]-MARG-34} ${y} Tm (${pdfTxt((i+1)+' / '+N)}) Tj ET 0 0 0 rg\n`;
       y-=6; c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.8 w S\n`; y-=18;
     }
-    if(idImg){
-      const maxH=A4[1]*0.46, s=Math.min(larg/iw, maxH/ih), w=iw*s, hh=ih*s;
-      c+=`q ${w.toFixed(2)} 0 0 ${hh.toFixed(2)} ${(MARG+(larg-w)/2).toFixed(2)} ${(y-hh).toFixed(2)} cm /Im0 Do Q\n`;
+    if(conImg){
+      const maxH=A4[1]*0.44, s=Math.min(larg/iw, maxH/ih), ww=iw*s, hh=ih*s;
+      c+=`q ${ww.toFixed(2)} 0 0 ${hh.toFixed(2)} ${(MARG+(larg-ww)/2).toFixed(2)} ${(y-hh).toFixed(2)} cm /Im0 Do Q\n`;
       y-=hh+26;
     }
-    c+=`BT /F2 20 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.titolo)}) Tj ET\n`; y-=22;
-    if(p.sottotitolo){ c+=`BT /F1 10 Tf 0.45 0.42 0.36 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.sottotitolo)}) Tj ET 0 0 0 rg\n`; y-=20 }
-    c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.6 w S\n`; y-=20;
+    c+=`BT /F2 19 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.titolo)}) Tj ET\n`; y-=21;
+    if(p.sottotitolo){ c+=`BT /F1 10 Tf 0.45 0.42 0.36 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(p.sottotitolo)}) Tj ET 0 0 0 rg\n`; y-=19 }
+    c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.6 w S\n`; y-=19;
     for(const r of (p.righe||[])){
-      if(y<MARG+40){ break }
-      c+=`BT /F2 9 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(r[0].toUpperCase())}) Tj ET\n`;
-      const linee=spezza(r[1],62);
-      linee.forEach((l,k)=>{ c+=`BT /F1 11 Tf 1 0 0 1 ${MARG+118} ${y-k*14} Tm (${pdfTxt(l)}) Tj ET\n` });
-      y-=Math.max(16, linee.length*14+4);
+      if(y<MARG+34) break;
+      c+=`BT /F2 9 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(String(r[0]).toUpperCase())}) Tj ET\n`;
+      const linee=spezza(r[1],60);
+      linee.forEach((l,k)=>{ c+=`BT /F1 11 Tf 1 0 0 1 ${MARG+120} ${y-k*14} Tm (${pdfTxt(l)}) Tj ET\n` });
+      y-=Math.max(16, linee.length*14+3);
     }
-    if(p.testo){ y-=8; for(const l of spezza(p.testo,74)){ if(y<MARG+20)break;
+    if(p.testo){ y-=8; for(const l of spezza(p.testo,72)){ if(y<MARG+18)break;
       c+=`BT /F1 11 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(l)}) Tj ET\n`; y-=14 } }
     c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${MARG} ${MARG-18} Tm (${pdfTxt("DeadArt - Maurizio D'Andrea")}) Tj ET\n`;
-    const idCont=aggiungi([`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
-    const risorse=idImg ? `<< /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im0 ${idImg} 0 R >> >>`
-                        : `<< /Font << /F1 3 0 R /F2 4 0 R >> >>`;
-    const idPag=aggiungi([`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4[0]} ${A4[1]}] /Resources ${risorse} /Contents ${idCont} 0 R >>`]);
-    idPagine.push(idPag);
+
+    await oggetto(numCont(i),[`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
+    const risorse = conImg
+      ? `<< /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im0 ${numImg(i)} 0 R >> >>`
+      : `<< /Font << /F1 3 0 R /F2 4 0 R >> >>`;
+    await oggetto(numPag(i),[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4[0]} ${A4[1]}] /Resources ${risorse} /Contents ${numCont(i)} 0 R >>`]);
+    await new Promise(r=>setTimeout(r,0));
   }
 
-  const tutti=[
-    ['<< /Type /Catalog /Pages 2 0 R >>'],
-    [`<< /Type /Pages /Kids [${idPagine.map(n=>n+' 0 R').join(' ')}] /Count ${idPagine.length} >>`],
-    ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'],
-    ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'],
-    ...corpi];
+  const xref=w.pos();
+  await w.scrivi(`xref\n0 ${totOgg+1}\n0000000000 65535 f \n`);
+  for(let n=1;n<=totOgg;n++) await w.scrivi(String(off[n]||0).padStart(10,'0')+' 00000 n \n');
+  await w.scrivi(`trailer\n<< /Size ${totOgg+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+}
 
-  scrivi('%PDF-1.4\n');
-  tutti.forEach((parti,i)=>{ off[i]=lung; scrivi(`${i+1} 0 obj\n`); parti.forEach(scrivi); scrivi('\nendobj\n') });
-  const xref=lung;
-  scrivi(`xref\n0 ${tutti.length+1}\n0000000000 65535 f \n`);
-  off.forEach(o=>scrivi(String(o).padStart(10,'0')+' 00000 n \n'));
-  scrivi(`trailer\n<< /Size ${tutti.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
-  return new Blob(pezzi,{type:'application/pdf'});
+async function generaPDF(pagine,intestazione,nomeFile){
+  if(!pagine.length){ toast('Non c\'è niente da mettere nel PDF.'); return }
+  toast('Preparo il PDF… non chiudere l\'app');
+  await new Promise(r=>setTimeout(r,60));
+  const N=nativo();
+  if(N){
+    const w=scrittoreFile(N,nomeFile);
+    try{
+      const ok=await w.apri();
+      if(!ok){ toast('Salvataggio annullato.'); return }
+      await scriviPDF(pagine,intestazione,w);
+      const r=await w.fine();
+      toast('Salvato: '+((r&&r.nome)||nomeFile));
+      return;
+    }catch(e){ /* plugin vecchio o errore: si prova in memoria */ }
+  }
+  const w=scrittoreMemoria();
+  try{ await scriviPDF(pagine,intestazione,w) }
+  catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'?')); return }
+  const doc=await w.fine();
+  await condividi(doc,nomeFile,intestazione);
 }
 
 async function pdfDaTab(quale){
   const lista = quale==='cant' ? cantieri() : scarti();
   if(!lista.length){ toast('Non c\'è niente da mettere nel PDF.'); return }
-  if(lista.length>50 && !confirm(lista.length+' pagine sono tante: il telefono ci mette un po\' e il file sarà grosso. Vado avanti?')) return;
-  toast('Preparo il PDF… non chiudere l\'app');
-  await new Promise(r=>setTimeout(r,60));
+  const ordinata=lista.slice().sort((a,b)=>b.createdAt-a.createdAt);
   const pagine=[];
-  for(const i of lista.slice().sort((a,b)=>b.createdAt-a.createdAt)){
-    const m=await Store.media(i.id);
-    const originale = quale==='cant' ? ((m.fasi&&m.fasi.length)?m.fasi[m.fasi.length-1].foto:null) : (m.photos&&m.photos[0]);
-    const foto = await perPdf(originale);
+  for(const i of ordinata){
     const righe=[];
     if(i.anno)righe.push(['anno',i.anno]);
     if(misure(i))righe.push(['dimensioni',misure(i)]);
@@ -457,7 +493,6 @@ async function pdfDaTab(quale){
     if(quale==='cant'){
       righe.push(['stato', i.chiuso?'finita':'in corso']);
       righe.push(['fasi', String(i.nFasi||0)]);
-      const min=(m.fasi||[]).reduce((s,f)=>s+(+f.minuti||0),0); if(min)righe.push(['lavoro',durata(min)]);
       if(i.dataInizio)righe.push(['iniziata',it(i.dataInizio)]);
     }else{
       if(i.destino)righe.push(['che fine ha fatto',i.destino]);
@@ -466,40 +501,41 @@ async function pdfDaTab(quale){
       if(i.ubicaz)righe.push(['ubicazione',i.ubicaz]);
     }
     if(i.progetto)righe.push(['cartella',i.progetto]);
-    pagine.push({ foto,
-      intestazione: (quale==='cant'?'DeadArt — cantiere · ':'DeadArt — archivio · ')+(i.titolo||i.parola||'senza titolo'),
+    pagine.push({
+      // la foto si prende solo al momento di scriverla, non prima
+      foto: async()=>{ const m=await Store.media(i.id);
+        return quale==='cant' ? ((m.fasi&&m.fasi.length)?m.fasi[m.fasi.length-1].foto:null) : (m.photos&&m.photos[0]) },
+      intestazione:(quale==='cant'?'DeadArt — cantiere · ':'DeadArt — archivio · ')+(i.titolo||i.parola||'senza titolo'),
       titolo: quale==='cant' ? (i.titolo||'senza titolo') : (i.parola||i.titolo||'senza titolo'),
       sottotitolo: quale==='cant' ? '' : (i.parola? (i.titolo||'senza titolo') : (i.dimenticata?'dimenticata':'in decantazione')),
       righe, testo: i.note||'' });
   }
-  const nome = (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf';
-  const testa = quale==='cant' ? 'DeadArt — cantiere' : 'DeadArt — archivio';
-  try{ await condividi(await creaPDF(pagine,testa), nome, 'DeadArt') }
-  catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'prova con meno schede')) }
+  await generaPDF(pagine, quale==='cant'?'DeadArt — cantiere':'DeadArt — archivio',
+    (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf');
 }
 
 async function pdfOpera(id){
   const c=items.find(x=>x.id===id); if(!c){toast('Opera non trovata');return}
   const m=await Store.media(id);
   const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
-  toast('Preparo il PDF… non chiudere l\'app');
-  await new Promise(r=>setTimeout(r,60));
   const min=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
-  const pagine=[{ foto: await perPdf(fasi.length?fasi[fasi.length-1].foto:null), titolo:c.titolo||'senza titolo',
+  const pagine=[{
+    foto: async()=>{ const mm=await Store.media(id); const ff=(mm.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
+      return ff.length?ff[ff.length-1].foto:null },
+    titolo:c.titolo||'senza titolo',
     sottotitolo:(c.chiuso?'finita':'in corso')+' · '+fasi.length+' fasi'+(min?' · '+durata(min)+' di lavoro':''),
     righe:[ ...(c.anno?[['anno',c.anno]]:[]), ...(misure(c)?[['dimensioni',misure(c)]]:[]),
       ...(c.tecnica?[['tecnica',c.tecnica]]:[]), ...(c.supporto?[['supporto',c.supporto]]:[]),
       ...(c.dataInizio?[['iniziata il',it(c.dataInizio)]]:[]), ...(c.progetto?[['cartella',c.progetto]]:[]) ],
     testo:c.note||'' }];
-  for(let n=0;n<fasi.length;n++){
-    const f=fasi[n];
-    toast('Preparo la fase '+(n+1)+' di '+fasi.length);
-    pagine.push({ foto: await perPdf(f.foto), titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
+  fasi.forEach((f,n)=>{
+    pagine.push({
+      foto: async()=>{ const mm=await Store.media(id); const v=(mm.fasi||[]).find(x=>x.id===f.id); return v?v.foto:null },
+      titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
       sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
       righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' });
-  }
-  try{ await condividi(await creaPDF(pagine, c.titolo||'senza titolo'), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
-  catch(e){ toast('PDF non riuscito: '+((e&&e.message)||'errore sconosciuto')) }
+  });
+  await generaPDF(pagine, c.titolo||'senza titolo', 'deadart-'+slug(c.titolo)+'.pdf');
 }
 
 /* ===== viste ===== */
