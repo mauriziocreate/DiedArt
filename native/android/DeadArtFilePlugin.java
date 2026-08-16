@@ -106,6 +106,79 @@ public class DeadArtFilePlugin extends Plugin {
         }
     }
 
+
+    // ---- salvataggio a blocchi: per i file grossi (PDF, copie) ----
+    private OutputStream flussoAperto = null;
+    private Uri uriAperto = null;
+
+    @PluginMethod
+    public void salvaInizio(PluginCall call) {
+        chiudiFlusso();
+        String fileName = call.getString("fileName", "deadart");
+        String mime = call.getString("mime", "application/octet-stream");
+        call.setKeepAlive(true);
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mime);
+        intent.putExtra(Intent.EXTRA_TITLE, safeName(fileName));
+        startActivityForResult(call, intent, "salvaInizioRisultato");
+    }
+
+    @ActivityCallback
+    private void salvaInizioRisultato(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK
+                || result.getData() == null || result.getData().getData() == null) {
+            JSObject ret = new JSObject(); ret.put("annullato", true); call.resolve(ret); return;
+        }
+        try {
+            uriAperto = result.getData().getData();
+            flussoAperto = getContext().getContentResolver().openOutputStream(uriAperto, "w");
+            if (flussoAperto == null) throw new Exception("destinazione non apribile");
+            JSObject ret = new JSObject();
+            ret.put("annullato", false);
+            ret.put("nome", queryName(uriAperto));
+            call.resolve(ret);
+        } catch (Exception e) {
+            chiudiFlusso();
+            call.reject("Non riesco ad aprire il file: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void salvaPezzo(PluginCall call) {
+        if (flussoAperto == null) { call.reject("Nessun file aperto"); return; }
+        try {
+            String b64 = call.getString("base64", "");
+            int virgola = b64.indexOf(',');
+            if (b64.startsWith("data:") && virgola > 0) b64 = b64.substring(virgola + 1);
+            flussoAperto.write(Base64.decode(b64, Base64.DEFAULT));
+            call.resolve();
+        } catch (Exception e) {
+            chiudiFlusso();
+            call.reject("Scrittura non riuscita: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void salvaFine(PluginCall call) {
+        try {
+            if (flussoAperto != null) { flussoAperto.flush(); }
+            JSObject ret = new JSObject();
+            ret.put("nome", uriAperto != null ? queryName(uriAperto) : "file");
+            chiudiFlusso();
+            call.resolve(ret);
+        } catch (Exception e) {
+            chiudiFlusso();
+            call.reject("Chiusura non riuscita: " + e.getMessage(), e);
+        }
+    }
+
+    private void chiudiFlusso() {
+        try { if (flussoAperto != null) flussoAperto.close(); } catch (Exception ignored) {}
+        flussoAperto = null; uriAperto = null;
+    }
+
     /** Chiude l'app per davvero, non la manda solo in secondo piano. */
     @PluginMethod
     public void chiudi(PluginCall call) {
