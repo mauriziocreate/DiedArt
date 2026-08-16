@@ -126,20 +126,43 @@ jobs:
         id: chiave
         env:
           K: ${{ secrets.KEYSTORE_BASE64 }}
+          P: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
+          A: ${{ secrets.MAIR_KEY_ALIAS }}
+          Q: ${{ secrets.MAIR_KEY_PASSWORD }}
         run: |
-          if [ -n "$K" ]; then
-            echo "$K" | base64 -d > android/app/deadart.keystore
-            if [ -s android/app/deadart.keystore ]; then
-              echo "firma=si" >> $GITHUB_OUTPUT
-              echo "Chiave di firma trovata."
-            else
-              echo "firma=no" >> $GITHUB_OUTPUT
-              echo "ATTENZIONE: il segreto KEYSTORE_BASE64 e' vuoto o rovinato."
-            fi
-          else
-            echo "firma=no" >> $GITHUB_OUTPUT
-            echo "Nessuna chiave: esce solo un APK di prova, non pubblicabile."
+          echo "--- controllo dei quattro segreti ---"
+          echo "KEYSTORE_BASE64:        ${#K} caratteri"
+          echo "MAIR_KEYSTORE_PASSWORD: ${#P} caratteri"
+          echo "MAIR_KEY_ALIAS:         ${#A} caratteri"
+          echo "MAIR_KEY_PASSWORD:      ${#Q} caratteri"
+          echo "-------------------------------------"
+
+          MANCA=0
+          [ -z "$K" ] && { echo "MANCA il segreto KEYSTORE_BASE64";        MANCA=1; }
+          [ -z "$P" ] && { echo "MANCA il segreto MAIR_KEYSTORE_PASSWORD"; MANCA=1; }
+          [ -z "$A" ] && { echo "MANCA il segreto MAIR_KEY_ALIAS";         MANCA=1; }
+          [ -z "$Q" ] && { echo "MANCA il segreto MAIR_KEY_PASSWORD";      MANCA=1; }
+          if [ "$MANCA" = "1" ]; then
+            echo ""
+            echo "I segreti vanno impostati in QUESTO repository:"
+            echo "Settings -> Secrets and variables -> Actions -> New repository secret."
+            echo "Non si ereditano da altri repository."
+            exit 1
           fi
+
+          # il base64 puo' arrivare spezzato su piu' righe: si ricompatta
+          echo "$K" | tr -d ' \n\r' | base64 -d > android/app/deadart.keystore
+          if [ ! -s android/app/deadart.keystore ]; then
+            echo "Il segreto KEYSTORE_BASE64 c'e' ma non e' un keystore valido."
+            echo "Rigeneralo e incollalo tutto su una riga sola."
+            exit 1
+          fi
+
+          echo "Chiave di firma trovata: $(stat -c%s android/app/deadart.keystore) byte"
+          keytool -list -keystore android/app/deadart.keystore -storepass "$P" -alias "$A" >/dev/null 2>&1 \
+            && echo "Password e alias corrispondono." \
+            || { echo "ERRORE: password o alias sbagliati per questo keystore."; exit 1; }
+          echo "firma=si" >> $GITHUB_OUTPUT
 
       - name: Scrivi versione e firma dentro build.gradle
         env:
@@ -187,9 +210,9 @@ jobs:
           cd android
           chmod +x ./gradlew
           ./gradlew assembleDebug
-          if [ "${{ steps.chiave.outputs.firma }}" = "si" ]; then
-            ./gradlew bundleRelease assembleRelease
-          fi
+          ./gradlew bundleRelease assembleRelease
+          echo "--- file prodotti ---"
+          find app/build/outputs -name "*.aab" -o -name "*.apk" | sort
 
       - name: Rinomina i file con la versione
         run: |
@@ -199,10 +222,14 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "consegna/DeadArt-$V.apk" 2>/dev/null || true
           cp android/app/build/outputs/bundle/release/app-release.aab "consegna/DeadArt-$V.aab" 2>/dev/null || true
           ls -la consegna
+          if ! ls consegna/*.aab >/dev/null 2>&1; then
+            echo "ERRORE: il pacchetto .aab non e' stato prodotto."
+            exit 1
+          fi
 
       - name: Pubblica i file scaricabili
         uses: actions/upload-artifact@v4
         with:
           name: DeadArt-${{ steps.ver.outputs.nome }}-${{ steps.ver.outputs.codice }}
           path: consegna/*
-          if-no-files-found: warn
+          if-no-files-found: error
