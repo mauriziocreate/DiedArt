@@ -1,4 +1,4 @@
-const CACHE = 'deadart-v8';
+const CACHE = 'deadart-v9';
 const FILES = ['./', './index.html', './privacy.html', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-512-maskable.png'];
 self.addEventListener('install', e => {

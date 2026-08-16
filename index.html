@@ -275,35 +275,51 @@ function daDataUrl(u){const [t,b]=u.split(',');const mime=(t.match(/:(.*?);/)||[
   return new Blob([arr],{type:mime})}
 const nativo=()=>{const C=window.Capacitor;return C&&C.Plugins&&C.Plugins.DeadArtFile?C.Plugins.DeadArtFile:null};
 const soloBase64=u=>{const i=u.indexOf(',');return i>0?u.slice(i+1):u};
-const blobBase64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(soloBase64(f.result));f.readAsDataURL(b)});
+const blobBase64=b=>new Promise((r,k)=>{const f=new FileReader();f.onload=()=>r(soloBase64(f.result));f.onerror=()=>k(f.error);f.readAsDataURL(b)});
 
 async function condividi(dato,nome,testo){
   const blob = (typeof dato==='string' && dato.startsWith('data:')) ? daDataUrl(dato) : dato;
-  const mime = blob.type || (nome.endsWith('.json')?'application/json':'image/jpeg');
-
-  // 1. APK: finestra «Salva con nome» di Android, la strada che funziona sempre
+  const mime = blob.type || (nome.endsWith('.json')?'application/json':nome.endsWith('.pdf')?'application/pdf':'image/jpeg');
   const N=nativo();
+
+  // APK, file grosso: si scrive a blocchi, altrimenti la memoria esplode
+  if(N && typeof N.salvaInizio==='function' && blob.size>400*1024){
+    try{
+      const r=await N.salvaInizio({fileName:nome, mime:mime});
+      if(!r || r.annullato){ toast('Salvataggio annullato.'); return }
+      const PEZZO=256*1024; let scritti=0;
+      while(scritti<blob.size){
+        const fetta=blob.slice(scritti, Math.min(scritti+PEZZO, blob.size));
+        await N.salvaPezzo({base64: await blobBase64(fetta)});
+        scritti+=PEZZO;
+        if(blob.size>2*1024*1024) toast('Salvo… '+Math.min(100,Math.round(scritti*100/blob.size))+'%');
+      }
+      const f=await N.salvaFine();
+      toast('Salvato: '+((f&&f.nome)||nome));
+      return;
+    }catch(e){ toast('Salvataggio non riuscito'); return }
+  }
+
+  // APK, file piccolo: in un colpo solo
   if(N && typeof N.salva==='function'){
     try{
       const b64 = (typeof dato==='string'&&dato.startsWith('data:')) ? soloBase64(dato) : await blobBase64(blob);
       const r = await N.salva({base64:b64, fileName:nome, mime:mime});
-      toast(r && r.annullato ? 'Salvataggio annullato.' : 'Salvata: '+((r&&r.nome)||nome));
+      toast(r && r.annullato ? 'Salvataggio annullato.' : 'Salvato: '+((r&&r.nome)||nome));
       return;
-    }catch(e){ toast('Salvataggio non riuscito'); return; }
+    }catch(e){ toast('Salvataggio non riuscito'); return }
   }
 
-  // 2. Chrome e PWA installata: condivisione di sistema
+  // Chrome e PWA: condivisione di sistema
   try{
     const file=new File([blob],nome,{type:mime});
     if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:nome,text:testo||nome}); return }
   }catch(e){ if(e && e.name==='AbortError') return; }
 
-  // 3. Salvataggio classico del browser
   try{ const a=document.createElement('a'); const url=URL.createObjectURL(blob);
     a.href=url; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),6000); toast('Salvata: '+nome); return }catch(e){}
+    setTimeout(()=>URL.revokeObjectURL(url),6000); toast('Salvato: '+nome); return }catch(e){}
 
-  // 4. Ultima spiaggia: a schermo, si tiene premuto
   mostraSalvataggio(dato,nome,blob);
 }
 function mostraSalvataggio(dato,nome,blob){
@@ -345,12 +361,17 @@ async function creaPDF(pagine,titoloDoc){
   const idPagine=[]; const corpi=[];
   const aggiungi=parti=>{ corpi.push(parti); return corpi.length+4 }; // numeri da 5 in su
 
+  let fatte=0;
   for(const p of pagine){
+    if(pagine.length>6 && ++fatte%4===0){ toast('Pagina '+fatte+' di '+pagine.length); await new Promise(r=>setTimeout(r,0)) }
     let idImg=null, iw=0, ih=0;
     if(p.foto){
       try{
-        const im=await carica(p.foto);
-        const bytes=new Uint8Array(await daDataUrl(p.foto).arrayBuffer());
+        const grande=await carica(p.foto);
+        // dentro il PDF basta molto meno: così il file resta leggero e il telefono non si blocca
+        const ridotta=rid(grande, 1000, .58);
+        const im=await carica(ridotta);
+        const bytes=new Uint8Array(await daDataUrl(ridotta).arrayBuffer());
         iw=im.naturalWidth||im.width; ih=im.naturalHeight||im.height;
         idImg=aggiungi([`<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, '\nendstream']);
       }catch(e){ idImg=null }
@@ -402,7 +423,9 @@ async function creaPDF(pagine,titoloDoc){
 async function pdfDaTab(quale){
   const lista = quale==='cant' ? cantieri() : scarti();
   if(!lista.length){ toast('Non c\'è niente da mettere nel PDF.'); return }
-  toast('Sto preparando il PDF…');
+  if(lista.length>50 && !confirm(lista.length+' pagine sono tante: il telefono ci mette un po\' e il file sarà grosso. Vado avanti?')) return;
+  toast('Preparo il PDF… non chiudere l\'app');
+  await new Promise(r=>setTimeout(r,60));
   const pagine=[];
   for(const i of lista.slice().sort((a,b)=>b.createdAt-a.createdAt)){
     const m=await Store.media(i.id);
@@ -430,13 +453,15 @@ async function pdfDaTab(quale){
       righe, testo: i.note||'' });
   }
   const nome = (quale==='cant'?'deadart-cantiere-':'deadart-archivio-')+oggi()+'.pdf';
-  await condividi(await creaPDF(pagine), nome, 'DeadArt');
+  try{ await condividi(await creaPDF(pagine), nome, 'DeadArt') }
+  catch(e){ toast('PDF non riuscito: prova con meno schede.') }
 }
 
 async function pdfOpera(id){
   const c=items.find(x=>x.id===id); const m=await Store.media(id);
   const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
-  toast('Sto preparando il PDF…');
+  toast('Preparo il PDF… non chiudere l\'app');
+  await new Promise(r=>setTimeout(r,60));
   const min=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
   const pagine=[{ foto: fasi.length?fasi[fasi.length-1].foto:null, titolo:c.titolo||'senza titolo',
     sottotitolo:(c.chiuso?'finita':'in corso')+' · '+fasi.length+' fasi'+(min?' · '+durata(min)+' di lavoro':''),
@@ -447,7 +472,8 @@ async function pdfOpera(id){
   fasi.forEach((f,n)=>{ pagine.push({ foto:f.foto, titolo:'Fase '+(n+1)+(f.nome?' · '+f.nome:''),
     sottotitolo: it(f.data||f.ts)+(f.minuti?' · '+durata(f.minuti):''),
     righe:[ ...(f.cambiato?[['cosa è cambiato',f.cambiato]]:[]) ], testo:f.note||'' }) });
-  await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera');
+  try{ await condividi(await creaPDF(pagine), 'deadart-'+slug(c.titolo)+'.pdf', c.titolo||'opera') }
+  catch(e){ toast('PDF non riuscito.') }
 }
 
 /* ===== viste ===== */
@@ -535,10 +561,10 @@ function vInfo(){return `<div class="info">
  <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
  <div class="occhiello">Copia di sicurezza</div>
  <p style="font-size:14.5px;margin-top:12px">I dati stanno solo qui: se cambi telefono o disinstalli l'app, spariscono. Esporta ogni tanto.</p></div>
- <button class="btn giallo" id="exp">esporta e condividi la copia</button>
+ <button class="btn giallo" id="exp">esporta la copia delle schede</button>
  <button class="btn ghost" id="imp">importa una copia</button>
  <input type="file" id="fImp" accept=".json,application/json" hidden>
- <p class="nota">La copia è un file <b>.json</b> con dentro tutte le schede, le foto e le registrazioni. Condividilo su Drive, Telegram o mandalo a te stesso per email: per riprenderlo, tocca «importa» e scegli quel file.</p>
+ <p class="nota">La copia contiene le <b>schede</b>: titoli, date, misure, tecniche, note, fasi con i loro tempi. È un file leggero, che puoi mandarti per email. <b>Non contiene le immagini</b>, che sono troppo pesanti: per quelle usa l'esportazione in PDF, o la condivisione della singola foto.</p>
  <button class="btn rossa" id="wipe">cancella tutto</button>
  <button class="btn ghost" id="esci" style="margin-top:34px">chiudi l'app</button>`;
 }
@@ -868,20 +894,30 @@ function chiudiSheet(){ $('#sheet').classList.remove('on'); draft=null; editId=n
 const apri=id=>{const i=items.find(x=>x.id===id); if(!i)return; i.tipo==='cantiere'?apriCantiere(id):apriScarto(id)};
 
 async function importaTesto(testo){
-  try{
-    const dati=JSON.parse(testo);
-    if(!dati.items||!Array.isArray(dati.items)) throw new Error('formato');
-    if(!confirm('Importare '+dati.items.length+' schede? Quelle già presenti con lo stesso identificativo verranno sostituite.'))return;
-    toast('Sto importando…');
-    for(const o of dati.items){
-      if(!o.tipo)o.tipo='scarto';
-      const g=items.findIndex(x=>x.id===o.id);
-      if(g>=0) items[g]=o; else items.push(o);
-      await Store.salva(o);
-      if(dati.media&&dati.media[o.id]) await Store.setMedia(o.id,dati.media[o.id]);
+  let dati;
+  try{ dati=JSON.parse(testo) }
+  catch(e){ toast('Il file non si legge: forse è incompleto.'); return }
+  if(!dati || !Array.isArray(dati.items)){ toast('Questo non è un file di DeadArt.'); return }
+  if(!confirm('Importare '+dati.items.length+' schede? Le immagini non sono nella copia: restano solo quelle già sul telefono.'))return;
+  let n=0;
+  for(const o of dati.items){
+    if(!o.tipo)o.tipo='scarto';
+    const g=items.findIndex(x=>x.id===o.id);
+    if(g>=0) items[g]=Object.assign(items[g],o); else items.push(o);
+    await Store.salva(items.find(x=>x.id===o.id));
+    const m=await Store.media(o.id);
+    // formato 2: solo i dati delle fasi, le foto restano quelle che ci sono
+    if(dati.fasi && dati.fasi[o.id]){
+      const esistenti=m.fasi||[];
+      m.fasi=dati.fasi[o.id].map(f=>{ const v=esistenti.find(x=>x.id===f.id); return Object.assign({},f,v?{foto:v.foto,audio:v.audio}:{}) })
+        .filter(f=>f.foto);
+      await Store.setMedia(o.id,m);
     }
-    render(); toast('Importate '+dati.items.length+' schede.');
-  }catch(err){ toast('Il file non è una copia di DeadArt.'); }
+    // formato 1, quello vecchio con dentro le immagini
+    else if(dati.media && dati.media[o.id]) await Store.setMedia(o.id,dati.media[o.id]);
+    n++;
+  }
+  render(); toast('Importate '+n+' schede.');
 }
 
 /* ===== eventi ===== */
@@ -900,11 +936,14 @@ function lega(){
       if(voce){const m=await Store.media(i.id);m.voce=voce;await Store.setMedia(i.id,m)} render(); toast('Sigillata: '+w); }; }
   const ex=$('#exp'); if(ex)ex.onclick=async()=>{
     if(!items.length){toast('Non c\'è ancora niente da salvare.');return}
-    toast('Sto preparando la copia…');
-    const out={app:'DeadArt',versione:1,data:new Date().toISOString(),items,media:{}};
-    for(const i of items) out.media[i.id]=await Store.media(i.id);
-    const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
-    await condividi(blob,'deadart-'+oggi()+'.json','Copia di sicurezza DeadArt'); };
+    const out={app:'DeadArt',versione:2,data:new Date().toISOString(),items:[],fasi:{}};
+    for(const i of items){
+      const {thumb,...resto}=i; out.items.push(resto);
+      const m=await Store.media(i.id);
+      out.fasi[i.id]=(m.fasi||[]).map(({foto,audio,...f})=>f);
+    }
+    await condividi(new Blob([JSON.stringify(out)],{type:'application/json'}),
+      'deadart-schede-'+oggi()+'.json','Copia delle schede DeadArt'); };
   const im=$('#imp'); if(im)im.onclick=()=>$('#fImp').click();
   const fi=$('#fImp'); if(fi)fi.onchange=async e=>{
     const f=e.target.files[0]; if(!f)return; e.target.value='';
