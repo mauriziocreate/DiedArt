@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.OpenableColumns;
 import android.util.Base64;
+import android.webkit.MimeTypeMap;
 
 import androidx.activity.result.ActivityResult;
 
@@ -177,6 +178,25 @@ public class DeadArtFilePlugin extends Plugin {
     private void chiudiFlusso() {
         try { if (flussoAperto != null) flussoAperto.close(); } catch (Exception ignored) {}
         flussoAperto = null; uriAperto = null;
+    }
+
+
+    // ---- condivisione in arrivo da altre app ----
+    // MainActivity mette qui quello che l'utente ha condiviso; la pagina lo ritira.
+    static JSObject condivisione = null;
+
+    @PluginMethod
+    public void condivisoInSospeso(PluginCall call) {
+        if (condivisione == null) {
+            JSObject vuoto = new JSObject();
+            vuoto.put("vuoto", true);
+            call.resolve(vuoto);
+        } else {
+            JSObject fuori = condivisione;
+            condivisione = null;
+            fuori.put("vuoto", false);
+            call.resolve(fuori);
+        }
     }
 
     /** Chiude l'app per davvero, non la manda solo in secondo piano. */
