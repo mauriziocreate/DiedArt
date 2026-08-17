@@ -240,6 +240,7 @@ a{color:var(--rosso)}
 /* ===== DeadArt — Maurizio D'Andrea — app libera ===== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const VERSIONE='1.1.0';
 const D=864e5, ATTESA=7*D, FINESTRA=8*D, MAXBYTE=1024*1024;
 let items=[], tab='cant', draft=null, rec=null, editId=null, decSel=null, filtroRacc='';
 const now=()=>Date.now();
@@ -717,7 +718,7 @@ function vInfo(){return `<div class="info">
  <p><strong>La decantazione</strong> è la regola che tiene insieme le due cose. Ogni scheda dell'archivio nasce muta: per sette giorni non puoi dire perché l'hai scartata. Al settimo giorno l'app chiede <em>cosa è rimasto?</em> e tu rispondi con una parola e cinque secondi di voce. Quella parola diventa il nome della scheda, e l'archivio si legge come un elenco di parole.</p>
  <p>Tutto resta sul telefono: nessun account, nessun server, nessun cookie, nessuna pubblicità.</p>
  <div class="firma">Maurizio D'Andrea<br><span style="font-family:var(--mono);font-size:13px;font-weight:400">artista internazionale</span></div>
- <p class="grigio" style="font-size:13.5px;margin-top:10px">App libera, distribuita senza assistenza né manutenzione. 2026</p>
+ <p class="grigio" style="font-size:13.5px;margin-top:10px">Versione ${VERSIONE} · app libera, distribuita senza assistenza né manutenzione. 2026</p>
  <div class="occhiello">Tenere una copia</div>
  <p style="font-size:14.5px;margin-top:12px">I dati stanno solo su questo telefono: se lo cambi o disinstalli l'app, spariscono. Per conservare il lavoro usa l'<b>esportazione in PDF</b> — dal cantiere, dall'archivio o dalla singola opera: quei documenti contengono le immagini e tutti i dati, si aprono su qualsiasi computer e non hanno bisogno di DeadArt per essere letti.</p>
  <p style="font-size:14.5px">Per una foto singola, il pulsante <b>condividi</b> dentro ogni scheda.</p></div>
@@ -1205,7 +1206,27 @@ async function raccogliCondivisione(){
   }
   render();
   setTimeout(()=>{const s=$('#splash');if(s){s.classList.add('via');setTimeout(()=>s.remove(),620)}},1800);
-  if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+    try{
+      const reg=await navigator.serviceWorker.register('sw.js');
+      // se arriva una versione nuova, si carica da sola al prossimo tocco
+      reg.addEventListener('updatefound',()=>{
+        const nuovo=reg.installing;
+        if(!nuovo)return;
+        nuovo.addEventListener('statechange',()=>{
+          if(nuovo.state==='installed' && navigator.serviceWorker.controller){
+            toast('Nuova versione pronta: si ricarica…');
+            nuovo.postMessage('aggiorna-adesso');
+          }
+        });
+      });
+      let ricaricato=false;
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{
+        if(ricaricato)return; ricaricato=true; location.reload();
+      });
+      setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
+    }catch(e){}
+  }
   if(location.search.includes('condiviso')){
     await raccogliCondivisione();
     history.replaceState({},'', location.pathname);
