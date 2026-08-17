@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.PermissionRequest;
@@ -116,11 +115,7 @@ public class MainActivity extends BridgeActivity {
                 out.write(buffer, 0, letti);
             }
             String tipo = getContentResolver().getType(uri);
-            if (tipo == null) {
-                String est = MimeTypeMap.getFileExtensionFromUrl(uri.toString());
-                tipo = MimeTypeMap.getSingleton().getMimeTypeFromExtension(est);
-            }
-            if (tipo == null) tipo = "image/jpeg";
+            if (tipo == null || !tipo.startsWith("image/")) tipo = "image/jpeg";
             return "data:" + tipo + ";base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
         } catch (Exception e) {
             return null;

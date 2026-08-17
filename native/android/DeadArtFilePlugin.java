@@ -6,7 +6,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.OpenableColumns;
 import android.util.Base64;
-import android.webkit.MimeTypeMap;
 
 import androidx.activity.result.ActivityResult;
 
