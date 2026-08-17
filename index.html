@@ -240,7 +240,7 @@ a{color:var(--rosso)}
 /* ===== DeadArt — Maurizio D'Andrea — app libera ===== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const VERSIONE='1.1.0';
+const VERSIONE='1.1.1';
 const D=864e5, ATTESA=7*D, FINESTRA=8*D, MAXBYTE=1024*1024;
 let items=[], tab='cant', draft=null, rec=null, editId=null, decSel=null, filtroRacc='';
 const now=()=>Date.now();
@@ -1160,43 +1160,71 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.
 $('#fab').onclick=nuova; $('#sClose').onclick=chiudiSheet;
 addEventListener('keydown',e=>{if(e.key==='Escape')chiudiSheet()});
 
-// Quando Android manda qui una condivisione, il service worker la mette da parte:
-// all'avvio la si raccoglie e si apre direttamente il modulo, già compilato.
-async function raccogliCondivisione(){
+// Una condivisione può arrivare in due modi: dall'app installata dal Play Store
+// (la raccoglie il codice nativo) oppure dalla versione web (la raccoglie il
+// service worker). Qui si guardano tutte e due le strade.
+
+async function apriModuloCondiviso(d){
+  draft={id:'r'+Date.now()+Math.random().toString(36).slice(2,5),tipo:'riferimento',
+    photos:[],thumb:null,ratio:1,genere:''};
+  for(const img of (d.immagini||[]).slice(0,4)){
+    try{ const b=await fetch(img).then(r=>r.blob()); const c=await comprimi(b);
+      draft.photos.push(c.full); if(!draft.thumb){draft.thumb=c.thumb;draft.ratio=c.ratio} }catch(e){}
+  }
+  const tutto=[d.indirizzo,d.testo].filter(Boolean).join(' ');
+  const trovato=(tutto.match(/https?:\/\/[^\s]+/)||[])[0]||'';
+  const titolo=(d.titolo||'').trim() || (d.testo||'').replace(trovato,'').trim().slice(0,90);
+  editId=null; tab='racc'; render();
+  apriSheet('Salvato da fuori', moduloRif({titolo:titolo, url:trovato}));
+  legaRif();
+  setTimeout(()=>{ const p=$('#rPerche'); if(p)p.focus() },350);
+  toast('Scrivi perché lo stai salvando.');
+}
+
+// versione installata: il codice nativo tiene da parte la condivisione
+async function condivisioneNativa(){
+  const N=nativo();
+  if(!N || typeof N.condivisoInSospeso!=='function') return false;
+  try{
+    const d=await N.condivisoInSospeso();
+    if(!d || d.vuoto) return false;
+    await apriModuloCondiviso(d);
+    return true;
+  }catch(e){ return false }
+}
+
+// versione web: il service worker l'ha messa in una cache
+async function condivisioneWeb(){
   try{
     const c=await caches.open('deadart-condiviso');
     const r=await c.match('/__condiviso.json');
     if(!r) return false;
     const d=await r.json();
     await c.delete('/__condiviso.json');
-
     let quante=0;
     const rq=await c.match('/__condiviso-quante');
     if(rq){ quante=parseInt(await rq.text())||0; await c.delete('/__condiviso-quante') }
-
-    draft={id:'r'+Date.now()+Math.random().toString(36).slice(2,5),tipo:'riferimento',
-      photos:[],thumb:null,ratio:1,genere:''};
-
+    const immagini=[];
     for(let n=0;n<quante&&n<4;n++){
       const ri=await c.match('/__condiviso-img-'+n);
-      if(ri){ const b=await ri.blob(); const compressa=await comprimi(b);
-        draft.photos.push(compressa.full); if(!draft.thumb){draft.thumb=compressa.thumb;draft.ratio=compressa.ratio}
+      if(ri){ const b=await ri.blob();
+        immagini.push(await new Promise(res=>{const f=new FileReader();f.onload=()=>res(f.result);f.readAsDataURL(b)}));
         await c.delete('/__condiviso-img-'+n); }
     }
-
-    // dal testo condiviso si estrae l'indirizzo, se c'è
-    const tutto=[d.indirizzo,d.testo].filter(Boolean).join(' ');
-    const trovato=(tutto.match(/https?:\/\/[^\s]+/)||[])[0]||'';
-    const titolo=(d.titolo||'').trim() || (d.testo||'').replace(trovato,'').trim().slice(0,90);
-
-    editId=null; tab='racc'; render();
-    apriSheet('Salvato da fuori', moduloRif({titolo:titolo, url:trovato}));
-    legaRif();
-    setTimeout(()=>{ const p=$('#rPerche'); if(p)p.focus() },350);
-    toast('Scrivi perché lo stai salvando.');
+    d.immagini=immagini;
+    await apriModuloCondiviso(d);
     return true;
   }catch(e){ return false }
 }
+
+async function raccogliCondivisione(){
+  if(await condivisioneNativa()) return true;
+  return await condivisioneWeb();
+}
+
+// se l'app era già aperta, il codice nativo la avvisa
+addEventListener('deadart-condiviso', ()=>{ condivisioneNativa() });
+addEventListener('visibilitychange', ()=>{ if(!document.hidden) condivisioneNativa() });
 
 (async()=>{ await Store.init(); items=await Store.tutti(); items.forEach(i=>{if(!i.tipo)i.tipo='scarto'}); await scaduti(); render();
   // ricalcola una volta la data dell'ultima fase per le schede create prima di questa correzione
@@ -1227,10 +1255,8 @@ async function raccogliCondivisione(){
       setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
     }catch(e){}
   }
-  if(location.search.includes('condiviso')){
-    await raccogliCondivisione();
-    history.replaceState({},'', location.pathname);
-  }
+  await raccogliCondivisione();
+  if(location.search.includes('condiviso')) history.replaceState({},'', location.pathname);
 })();
 </script>
 </body>
