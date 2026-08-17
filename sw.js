@@ -2,7 +2,7 @@
    I file dell'app si prendono sempre dalla rete quando c'è: così un aggiornamento
    arriva subito e non resti mai con la versione vecchia. Le immagini e i caratteri
    restano in cache. Senza rete, funziona tutto lo stesso.                        */
-const VERSIONE = '1.1.1';
+const VERSIONE = '1.1.2';
 const CACHE = 'deadart-' + VERSIONE;
 const SCAMBIO = 'deadart-condiviso';
 const FILES = ['./', './index.html', './privacy.html', './manifest.json',

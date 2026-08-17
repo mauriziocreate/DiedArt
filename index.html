@@ -240,7 +240,7 @@ a{color:var(--rosso)}
 /* ===== DeadArt — Maurizio D'Andrea — app libera ===== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const VERSIONE='1.1.1';
+const VERSIONE='1.1.2';
 const D=864e5, ATTESA=7*D, FINESTRA=8*D, MAXBYTE=1024*1024;
 let items=[], tab='cant', draft=null, rec=null, editId=null, decSel=null, filtroRacc='';
 const now=()=>Date.now();
@@ -388,9 +388,18 @@ function mostraSalvataggio(dato,nome,blob){
    una pagina alla volta. Così regge anche opere con trenta fasi.                */
 const A4=[595.28,841.89], MARG=42;
 const enc1=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&0xFF;return a};
-const lat1=s=>{const a=[];for(const ch of String(s==null?'':s)){const c=ch.charCodeAt(0);a.push(c<256?c:63)}return a};
+const RIMPIAZZI={'\u2014':'-','\u2013':'-','\u2018':"'",'\u2019':"'",'\u201c':'"','\u201d':'"','\u2026':'...','\u2022':'\u00b7','\u00a0':' '};
+function lat1(s){
+  s=String(s==null?'':s).replace(/[\u2014\u2013\u2018\u2019\u201c\u201d\u2026\u2022\u00a0]/g,c=>RIMPIAZZI[c]);
+  const a=[];
+  for(const ch of s){ const c=ch.charCodeAt(0); a.push(c<256?c:63) }
+  return a;
+}
 const pdfTxt=s=>{let o='';for(const c of lat1(s)){const ch=String.fromCharCode(c);
   o += (ch==='('||ch===')'||ch==='\\') ? '\\'+ch : ch} return o};
+// larghezza indicativa di una riga, serve solo a centrarla
+const largo=(s,corpo,grassetto)=>String(s||'').length*corpo*(grassetto?0.58:0.50);
+const centro=(s,corpo,grassetto)=>Math.max(MARG,(A4[0]-largo(s,corpo,grassetto))/2);
 function spezza(testo,max){ const parole=String(testo||'').split(/\s+/); const righe=[]; let r='';
   for(const p of parole){ if((r+' '+p).trim().length>max){ if(r)righe.push(r); r=p } else r=(r?r+' ':'')+p }
   if(r)righe.push(r); return righe }
@@ -442,6 +451,27 @@ async function scriviPDF(pagine,intestazione,w){
   for(let i=0;i<N;i++){
     const p=pagine[i];
     if(N>3) toast('Pagina '+(i+1)+' di '+N);
+
+    // frontespizio: solo il titolo, grande e centrato
+    if(p.copertina){
+      let c='', y=A4[1]*0.62;
+      const righeT=spezza(p.titolo, 22);
+      const corpo = righeT.length>1 ? 30 : 38;
+      righeT.forEach(r=>{ c+=`BT /F2 ${corpo} Tf 1 0 0 1 ${centro(r,corpo,true).toFixed(1)} ${y} Tm (${pdfTxt(r)}) Tj ET\n`; y-=corpo*1.12 });
+      y-=14;
+      c+=`${A4[0]/2-70} ${y} m ${A4[0]/2+70} ${y} l 2 w S\n`; y-=26;
+      if(p.sottotitolo){ for(const r of spezza(p.sottotitolo,52)){
+        c+=`BT /F1 13 Tf 0.35 0.32 0.28 rg 1 0 0 1 ${centro(r,13,false).toFixed(1)} ${y} Tm (${pdfTxt(r)}) Tj ET 0 0 0 rg\n`; y-=18 } }
+      if(p.data){ y-=10;
+        c+=`BT /F1 10 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${centro(p.data,10,false).toFixed(1)} ${y} Tm (${pdfTxt(p.data)}) Tj ET 0 0 0 rg\n` }
+      const firma='DeadArt';
+      c+=`BT /F2 9 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${centro(firma,9,true).toFixed(1)} ${MARG} Tm (${pdfTxt(firma)}) Tj ET\n`;
+      await oggetto(numImg(i),['<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Length 0 >>\nstream\n\nendstream']);
+      await oggetto(numCont(i),[`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
+      await oggetto(numPag(i),[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4[0]} ${A4[1]}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${numCont(i)} 0 R >>`]);
+      continue;
+    }
+
     let iw=0, ih=0, conImg=false;
     const ridotta = await perPdf(typeof p.foto==='function' ? await p.foto() : p.foto);
     if(ridotta){
@@ -461,7 +491,8 @@ async function scriviPDF(pagine,intestazione,w){
     const testa=p.intestazione||intestazione;
     if(testa){
       c+=`BT /F2 8 Tf 0.64 0.17 0.12 rg 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(testa.toUpperCase())}) Tj ET 0 0 0 rg\n`;
-      c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${A4[0]-MARG-34} ${y} Tm (${pdfTxt((i+1)+' / '+N)}) Tj ET 0 0 0 rg\n`;
+      const primaPag=pagine[0]&&pagine[0].copertina?1:0;
+      c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${A4[0]-MARG-34} ${y} Tm (${pdfTxt((i+1-primaPag)+' / '+(N-primaPag))}) Tj ET 0 0 0 rg\n`;
       y-=6; c+=`${MARG} ${y} m ${A4[0]-MARG} ${y} l 0.8 w S\n`; y-=18;
     }
     if(conImg){
@@ -481,7 +512,7 @@ async function scriviPDF(pagine,intestazione,w){
     }
     if(p.testo){ y-=8; for(const l of spezza(p.testo,72)){ if(y<MARG+18)break;
       c+=`BT /F1 11 Tf 1 0 0 1 ${MARG} ${y} Tm (${pdfTxt(l)}) Tj ET\n`; y-=14 } }
-    c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${MARG} ${MARG-18} Tm (${pdfTxt("DeadArt - Maurizio D'Andrea")}) Tj ET\n`;
+    c+=`BT /F1 8 Tf 0.55 0.52 0.46 rg 1 0 0 1 ${MARG} ${MARG-18} Tm (${pdfTxt("DeadArt")}) Tj ET\n`;
 
     await oggetto(numCont(i),[`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
     const risorse = conImg
@@ -524,7 +555,10 @@ async function pdfDaTab(quale){
   const lista = quale==='cant' ? cantieri() : scarti();
   if(!lista.length){ toast('Non c\'è niente da mettere nel PDF.'); return }
   const ordinata=lista.slice().sort((a,b)=>b.createdAt-a.createdAt);
-  const pagine=[];
+  const oggiLungo=new Date().toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'});
+  const pagine=[ quale==='cant'
+    ? { copertina:true, titolo:'Cantiere', sottotitolo:'le opere in corso · '+lista.length+(lista.length==1?' scheda':' schede'), data:oggiLungo }
+    : { copertina:true, titolo:'Archivio', sottotitolo:'le opere che non ci sono più · '+lista.length+(lista.length==1?' scheda':' schede'), data:oggiLungo } ];
   for(const i of ordinata){
     const righe=[];
     if(i.anno)righe.push(['anno',i.anno]);
@@ -560,7 +594,13 @@ async function pdfOpera(id){
   const m=await Store.media(id);
   const fasi=(m.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
   const min=fasi.reduce((s,f)=>s+(+f.minuti||0),0);
+  const oggiLungo=new Date().toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'});
   const pagine=[{
+    copertina:true, titolo:c.titolo||'senza titolo',
+    sottotitolo:[misure(c),c.tecnica,c.anno].filter(Boolean).join(' · ')+
+      (fasi.length?' · '+fasi.length+' fasi'+(min?', '+durata(min)+' di lavoro':''):''),
+    data:oggiLungo
+  },{
     foto: async()=>{ const mm=await Store.media(id); const ff=(mm.fasi||[]).slice().sort((a,b)=>new Date(a.data||a.ts)-new Date(b.data||b.ts));
       return ff.length?ff[ff.length-1].foto:null },
     titolo:c.titolo||'senza titolo',
