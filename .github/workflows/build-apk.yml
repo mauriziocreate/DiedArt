@@ -103,6 +103,39 @@ jobs:
           print(destination.read_text())
           PYSTATUS
 
+      - name: Dichiara DeadArt come destinazione della condivisione
+        run: |
+          python3 - << 'PYSHARE'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          righe = [
+              '                <intent-filter>',
+              '                    <action android:name="android.intent.action.SEND" />',
+              '                    <category android:name="android.intent.category.DEFAULT" />',
+              '                    <data android:mimeType="text/plain" />',
+              '                </intent-filter>',
+              '                <intent-filter>',
+              '                    <action android:name="android.intent.action.SEND" />',
+              '                    <category android:name="android.intent.category.DEFAULT" />',
+              '                    <data android:mimeType="image/*" />',
+              '                </intent-filter>',
+              '                <intent-filter>',
+              '                    <action android:name="android.intent.action.SEND_MULTIPLE" />',
+              '                    <category android:name="android.intent.category.DEFAULT" />',
+              '                    <data android:mimeType="image/*" />',
+              '                </intent-filter>',
+              '            ',
+          ]
+          if 'android.intent.action.SEND' not in s:
+              taglio = s.rindex('</activity>')
+              s = s[:taglio] + chr(10).join(righe) + s[taglio:]
+              open(p, 'w').write(s)
+              print('filtri di condivisione aggiunti')
+          else:
+              print('filtri gia presenti')
+          print(s)
+          PYSHARE
+
       - name: Permessi di microfono e fotocamera
         run: |
           python3 - << 'PYPERM'
@@ -125,20 +158,26 @@ jobs:
       - name: Ricrea il keystore dalle chiavi segrete
         id: chiave
         env:
-          K: ${{ secrets.KEYSTORE_BASE64 }}
+          K1: ${{ secrets.KEYSTORE_BASE64 }}
+          K2: ${{ secrets.DEADART_KEYSTORE }}
+          K3: ${{ secrets.KEYSTORE }}
           P: ${{ secrets.MAIR_KEYSTORE_PASSWORD }}
           A: ${{ secrets.MAIR_KEY_ALIAS }}
           Q: ${{ secrets.MAIR_KEY_PASSWORD }}
         run: |
-          echo "--- controllo dei quattro segreti ---"
-          echo "KEYSTORE_BASE64:        ${#K} caratteri"
+          # va bene uno qualsiasi dei tre nomi
+          K="$K1"; [ -z "$K" ] && K="$K2"; [ -z "$K" ] && K="$K3"
+          echo "--- controllo dei segreti ---"
+          echo "KEYSTORE_BASE64:        ${#K1} caratteri"
+          echo "DEADART_KEYSTORE:       ${#K2} caratteri"
+          echo "KEYSTORE:               ${#K3} caratteri"
           echo "MAIR_KEYSTORE_PASSWORD: ${#P} caratteri"
           echo "MAIR_KEY_ALIAS:         ${#A} caratteri"
           echo "MAIR_KEY_PASSWORD:      ${#Q} caratteri"
           echo "-------------------------------------"
 
           MANCA=0
-          [ -z "$K" ] && { echo "MANCA il segreto KEYSTORE_BASE64";        MANCA=1; }
+          [ -z "$K" ] && { echo "MANCA la chiave: nessuno dei nomi KEYSTORE_BASE64 / DEADART_KEYSTORE / KEYSTORE ha un valore"; MANCA=1; }
           [ -z "$P" ] && { echo "MANCA il segreto MAIR_KEYSTORE_PASSWORD"; MANCA=1; }
           [ -z "$A" ] && { echo "MANCA il segreto MAIR_KEY_ALIAS";         MANCA=1; }
           [ -z "$Q" ] && { echo "MANCA il segreto MAIR_KEY_PASSWORD";      MANCA=1; }
@@ -153,8 +192,9 @@ jobs:
           # il base64 puo' arrivare spezzato su piu' righe: si ricompatta
           echo "$K" | tr -d ' \n\r' | base64 -d > android/app/deadart.keystore
           if [ ! -s android/app/deadart.keystore ]; then
-            echo "Il segreto KEYSTORE_BASE64 c'e' ma non e' un keystore valido."
-            echo "Rigeneralo e incollalo tutto su una riga sola."
+            echo "La chiave c'e' ma non e' un keystore valido:"
+            echo "il testo incollato non e' base64, oppure e' incompleto."
+            echo "Rigeneralo e incollalo tutto, senza a capo."
             exit 1
           fi
 
