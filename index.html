@@ -225,6 +225,8 @@ const oggi=()=>new Date().toISOString().slice(0,10);
 const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2400)};
 const slug=s=>(s||'opera').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
 const durata=m=>{m=+m||0; if(!m)return ''; const o=Math.floor(m/60), r=m%60; return o?(o+'h'+(r?' '+r+'m':'')):(r+' min')};
+const quando=f=>new Date(f.data||f.ts).getTime();
+const ultimaDelle=fasi=>(fasi&&fasi.length)?Math.max(...fasi.map(quando)):null;
 const misure=i=>(i.base&&i.altezza)?i.base+'×'+i.altezza+' cm':'';
 
 const DESTINI=['distrutta','coperta','abbandonata','smarrita','cancellata','sparita'];
@@ -654,7 +656,7 @@ function vPriv(){return `<div class="info">
  <div class="occhiello">Rete</div>
  <p style="margin-top:12px">L'app funziona senza connessione. L'unica richiesta esterna possibile è il caricamento dei caratteri tipografici alla prima apertura; senza rete usa quelli di sistema.</p>
  <div class="occhiello">Cancellazione</div>
- <p style="margin-top:12px">Puoi cancellare ogni scheda dal suo dettaglio, o svuotare tutto dalla schermata Info. Disinstallando l'app, i dati spariscono con lei. Non resta niente altrove, perché non c'è nessun altrove.</p>
+ <p style="margin-top:12px">Puoi cancellare ogni scheda dal suo dettaglio, o svuotare tutto dalla schermata Info. Disinstallando l'app, i dati spariscono con lei. Non resta niente da nessuna altra parte!</p>
  <div class="occhiello">Titolare</div>
  <p style="margin-top:12px">DeadArt è un'app libera realizzata da <strong>Maurizio D'Andrea</strong>, artista internazionale, e distribuita senza assistenza né manutenzione.<br>
  Per qualsiasi domanda: <a href="mailto:dandreart.info@gmail.com">dandreart.info@gmail.com</a></p>
@@ -755,12 +757,13 @@ async function salvaCantiere(){
   if(draft.thumb){d.thumb=draft.thumb;d.ratio=draft.ratio}
   if(editId){ const i=items.find(x=>x.id===editId); Object.assign(i,d); await Store.salva(i);
     const m=await Store.media(editId); m.audio=draft.audio||m.audio;
-    if(draft.photos[0]&&!(m.fasi&&m.fasi.length)){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:'',foto:draft.photos[0]}];
-      i.nFasi=1; i.ultima=now(); await Store.salva(i); }
+    if(draft.photos[0]&&!(m.fasi&&m.fasi.length)){ m.fasi=[{id:'f'+now(),ts:now(),data:val('dInizio')||oggi(),nome:'apertura',nota:'',foto:draft.photos[0]}];
+      i.nFasi=1; i.ultima=ultimaDelle(m.fasi); await Store.salva(i); }
     await Store.setMedia(editId,m); }
   else { const o=Object.assign({id:draft.id,createdAt:now(),chiuso:false,nFasi:0,ultima:null},d); items.push(o);
     const m=vuotoMedia(); m.audio=draft.audio;
-    if(draft.photos[0]){ m.fasi=[{id:'f'+now(),ts:now(),nome:'apertura',nota:val('note'),foto:draft.photos[0]}]; o.nFasi=1; o.ultima=now(); }
+    if(draft.photos[0]){ m.fasi=[{id:'f'+now(),ts:now(),data:val('dInizio')||oggi(),nome:'apertura',nota:val('note'),foto:draft.photos[0]}];
+      o.nFasi=1; o.ultima=ultimaDelle(m.fasi); }
     await Store.salva(o); await Store.setMedia(o.id,m); }
   chiudiSheet(); tab='cant'; render(); toast(editId?'Modificata.':'Cantiere aperto.');
 }
@@ -818,7 +821,7 @@ async function apriCantiere(id){
       m.fasi.push({id:'f'+now(), ts:now(), data:$('#fData').value||oggi(), nome:$('#fNome').value.trim(),
         minuti:+$('#fMin').value||0, cambiato:$('#fCambiato').value.trim(), note:$('#fNote').value.trim(), foto:r2.full});
       await Store.setMedia(id,m);
-      c.nFasi=m.fasi.length; c.ultima=now(); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
+      c.nFasi=m.fasi.length; c.ultima=ultimaDelle(m.fasi); if(!c.thumb){c.thumb=r2.thumb;c.ratio=r2.ratio}
       await Store.salva(c); render(); apriCantiere(id); toast('Fase aggiunta.'); });
   };
   $('#fFaseCam').onchange=nuovaFase; $('#fFaseGal').onchange=nuovaFase;
@@ -843,11 +846,12 @@ async function apriCantiere(id){
       const vera=m.fasi.find(x=>x.id===f.id);
       vera.nome=$('#fNome').value.trim(); vera.data=$('#fData').value||vera.data;
       vera.minuti=+$('#fMin').value||0; vera.cambiato=$('#fCambiato').value.trim(); vera.note=$('#fNote').value.trim();
+      c.nFasi=m.fasi.length; c.ultima=ultimaDelle(m.fasi); await Store.salva(c);
       await Store.setMedia(id,m); render(); apriCantiere(id); toast('Fase modificata.'); }); });
   $('#sIn').querySelectorAll('[data-delfase]').forEach(b=>b.onclick=async()=>{
     const f=fasi[+b.dataset.delfase]; if(!confirm('Cancellare questa fase?'))return;
     m.fasi=m.fasi.filter(x=>x.id!==f.id); await Store.setMedia(id,m);
-    c.nFasi=m.fasi.length; c.ultima=m.fasi.length?m.fasi[m.fasi.length-1].ts:null; await Store.salva(c);
+    c.nFasi=m.fasi.length; c.ultima=ultimaDelle(m.fasi); await Store.salva(c);
     render(); apriCantiere(id); toast('Fase cancellata.'); });
 
   $('#pdfOp').onclick=()=>pdfOpera(id);
@@ -1016,6 +1020,12 @@ $('#fab').onclick=nuova; $('#sClose').onclick=chiudiSheet;
 addEventListener('keydown',e=>{if(e.key==='Escape')chiudiSheet()});
 
 (async()=>{ await Store.init(); items=await Store.tutti(); items.forEach(i=>{if(!i.tipo)i.tipo='scarto'}); await scaduti(); render();
+  // ricalcola una volta la data dell'ultima fase per le schede create prima di questa correzione
+  for(const c of items.filter(x=>x.tipo==='cantiere')){
+    const m=await Store.media(c.id); const u=ultimaDelle(m.fasi);
+    if(u && u!==c.ultima){ c.ultima=u; c.nFasi=(m.fasi||[]).length; await Store.salva(c) }
+  }
+  render();
   setTimeout(()=>{const s=$('#splash');if(s){s.classList.add('via');setTimeout(()=>s.remove(),620)}},1800);
   if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{}); })();
 </script>
